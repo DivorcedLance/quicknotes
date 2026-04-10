@@ -1,30 +1,29 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { FiChevronDown, FiChevronRight, FiEye, FiFileText, FiFolder, FiTrash2 } from 'react-icons/fi';
+import { FiCheckSquare, FiChevronDown, FiChevronRight, FiEye, FiFolder, FiTrash2 } from 'react-icons/fi';
 import { useAppStore } from '../stores/appStore';
-import { useFoldersStore } from '../stores/foldersStore';
-import { useNotesStore } from '../stores/notesStore';
+import { useTodoFoldersStore } from '../stores/todoFoldersStore';
+import { useTodosStore } from '../stores/todosStore';
 
-interface FolderTreeProps {
+interface TodoFolderTreeProps {
   parentId: string | null;
   depth?: number;
   searchQuery?: string;
 }
 
-const FolderTree: React.FC<FolderTreeProps> = ({ parentId, depth = 0, searchQuery = '' }) => {
-  const foldersState = useFoldersStore((state) => state.folders);
-  const deleteFolder = useFoldersStore((state) => state.deleteFolder);
+const TodoFolderTree: React.FC<TodoFolderTreeProps> = ({ parentId, depth = 0, searchQuery = '' }) => {
+  const foldersState = useTodoFoldersStore((state) => state.folders);
+  const deleteFolder = useTodoFoldersStore((state) => state.deleteFolder);
   const {
-    currentNotesFolderId,
-    currentNoteId,
-    setCurrentNotesFolderId,
-    setCurrentNoteId,
+    currentTodoFolderId,
+    currentTodoId,
+    setCurrentTodoFolderId,
     setCurrentTodoId,
-    setCurrentNotesFolderViewId,
     setCurrentTodoFolderViewId,
+    setCurrentNoteId,
   } = useAppStore();
-  const notesState = useNotesStore((state) => state.notes);
-  const moveNoteToFolder = useNotesStore((state) => state.moveNoteToFolder);
-  const deleteNote = useNotesStore((state) => state.deleteNote);
+  const todosState = useTodosStore((state) => state.todos);
+  const moveTodoToFolder = useTodosStore((state) => state.moveTodoToFolder);
+  const deleteTodo = useTodosStore((state) => state.deleteTodo);
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const [dragOverFolderId, setDragOverFolderId] = useState<string | null>(null);
 
@@ -35,27 +34,27 @@ const FolderTree: React.FC<FolderTreeProps> = ({ parentId, depth = 0, searchQuer
         .sort((a, b) => a.sortOrder - b.sortOrder || a.createdAt - b.createdAt),
     [foldersState, parentId]
   );
-  const notes = useMemo(
-    () => notesState.filter((note) => note.folderId === parentId),
-    [notesState, parentId]
+  const todos = useMemo(
+    () => todosState.filter((todo) => todo.folderId === parentId),
+    [todosState, parentId]
   );
 
   const normalizedSearchQuery = searchQuery.trim().toLowerCase();
   const isSearching = normalizedSearchQuery.length > 0;
 
   const folderMatchesSearch = (folderName: string) => folderName.toLowerCase().includes(normalizedSearchQuery);
-  const noteMatchesSearch = (noteTitle: string) => noteTitle.toLowerCase().includes(normalizedSearchQuery);
+  const todoMatchesSearch = (todoTitle: string) => todoTitle.toLowerCase().includes(normalizedSearchQuery);
 
   const hasMatchingDescendant = (folderId: string): boolean => {
     if (!isSearching) {
       return true;
     }
 
-    const directNoteMatch = notesState.some(
-      (note) => note.folderId === folderId && noteMatchesSearch(note.title || 'Sin título')
+    const directTodoMatch = todosState.some(
+      (todo) => todo.folderId === folderId && todoMatchesSearch(todo.title || 'Sin título')
     );
 
-    if (directNoteMatch) {
+    if (directTodoMatch) {
       return true;
     }
 
@@ -68,25 +67,25 @@ const FolderTree: React.FC<FolderTreeProps> = ({ parentId, depth = 0, searchQuer
     });
   };
 
-  const visibleNotes = isSearching
-    ? notes.filter((note) => noteMatchesSearch(note.title || 'Sin título'))
-    : notes;
+  const visibleTodos = isSearching
+    ? todos.filter((todo) => todoMatchesSearch(todo.title || 'Sin título'))
+    : todos;
 
   const visibleFolders = isSearching
     ? folders.filter((folder) => folderMatchesSearch(folder.name) || hasMatchingDescendant(folder.id))
     : folders;
 
   useEffect(() => {
-    if (!currentNoteId) {
+    if (!currentTodoId) {
       return;
     }
 
-    const selectedNote = notesState.find((note) => note.id === currentNoteId);
-    if (!selectedNote?.folderId) {
+    const selectedTodo = todosState.find((todo) => todo.id === currentTodoId);
+    if (!selectedTodo?.folderId) {
       return;
     }
 
-    const folderPath = useFoldersStore.getState().getFolderPath(selectedNote.folderId).map((folder) => folder.id);
+    const folderPath = useTodoFoldersStore.getState().getFolderPath(selectedTodo.folderId).map((folder) => folder.id);
     const foldersInThisLevel = folders.map((folder) => folder.id);
     const foldersToExpand = foldersInThisLevel.filter((folderId) => folderPath.includes(folderId));
 
@@ -99,13 +98,13 @@ const FolderTree: React.FC<FolderTreeProps> = ({ parentId, depth = 0, searchQuer
         return nextExpanded;
       });
     }
-  }, [currentNoteId, notesState, folders]);
+  }, [currentTodoId, todosState, folders]);
 
-  if (visibleFolders.length === 0 && visibleNotes.length === 0) {
+  if (visibleFolders.length === 0 && visibleTodos.length === 0) {
     if (isSearching && parentId === null) {
       return (
         <div className="px-3 py-2 text-sm text-gray-500 dark:text-gray-400">
-          No se encontraron notas ni carpetas.
+          No se encontraron tareas ni carpetas.
         </div>
       );
     }
@@ -120,11 +119,11 @@ const FolderTree: React.FC<FolderTreeProps> = ({ parentId, depth = 0, searchQuer
     }));
   };
 
-  const moveDraggedNote = (event: React.DragEvent<HTMLDivElement>, folderId: string | null) => {
+  const moveDraggedTodo = (event: React.DragEvent<HTMLDivElement>, folderId: string | null) => {
     event.preventDefault();
-    const noteId = event.dataTransfer.getData('text/quicknotes-note-id');
-    if (noteId) {
-      moveNoteToFolder(noteId, folderId);
+    const todoId = event.dataTransfer.getData('text/quicknotes-todo-id');
+    if (todoId) {
+      moveTodoToFolder(todoId, folderId);
     }
     setDragOverFolderId(null);
   };
@@ -134,38 +133,38 @@ const FolderTree: React.FC<FolderTreeProps> = ({ parentId, depth = 0, searchQuer
     targetFolderId: string
   ) => {
     event.preventDefault();
-    const folderId = event.dataTransfer.getData('text/quicknotes-folder-id');
+    const folderId = event.dataTransfer.getData('text/quicknotes-todo-folder-id');
     if (folderId && folderId !== targetFolderId) {
-      useFoldersStore.getState().moveFolder(folderId, targetFolderId);
+      useTodoFoldersStore.getState().moveFolder(folderId, targetFolderId);
     }
     setDragOverFolderId(null);
   };
 
-  const renderNote = (note: (typeof notesState)[number]) => (
+  const renderTodo = (todo: (typeof todosState)[number]) => (
     <button
-      key={note.id}
+      key={todo.id}
       draggable
       onDragStart={(event) => {
-        event.dataTransfer.setData('text/quicknotes-note-id', note.id);
+        event.dataTransfer.setData('text/quicknotes-todo-id', todo.id);
         event.dataTransfer.effectAllowed = 'move';
       }}
       onClick={() => {
-        setCurrentNotesFolderId(note.folderId);
-        setCurrentNoteId(note.id);
+        setCurrentTodoFolderId(todo.folderId);
+        setCurrentTodoId(todo.id);
       }}
-      aria-current={currentNoteId === note.id ? 'true' : undefined}
+      aria-current={currentTodoId === todo.id ? 'true' : undefined}
       className={`group flex w-full items-start gap-2 rounded-lg px-3 py-2 text-left transition-colors ${
-        currentNoteId === note.id
+        currentTodoId === todo.id
           ? 'border border-blue-300 bg-blue-100 font-semibold text-blue-800 shadow-sm dark:border-blue-700 dark:bg-blue-950 dark:text-blue-200'
           : 'hover:bg-gray-200 dark:hover:bg-dark-tertiary'
       }`}
     >
-      <FiFileText
-        className={`mt-0.5 shrink-0 ${currentNoteId === note.id ? 'text-blue-600 dark:text-blue-300' : 'text-gray-400'}`}
+      <FiCheckSquare
+        className={`mt-0.5 shrink-0 ${currentTodoId === todo.id ? 'text-blue-600 dark:text-blue-300' : 'text-gray-400'}`}
       />
       <div className="min-w-0 flex-1">
-        <p className="truncate text-sm font-medium" title={note.title || 'Sin título'}>
-          {note.title || 'Sin título'}
+        <p className="truncate text-sm font-medium" title={todo.title || 'Sin título'}>
+          {todo.title || 'Sin título'}
         </p>
       </div>
       <FiTrash2
@@ -173,7 +172,7 @@ const FolderTree: React.FC<FolderTreeProps> = ({ parentId, depth = 0, searchQuer
         size={14}
         onClick={(event) => {
           event.stopPropagation();
-          deleteNote(note.id);
+          deleteTodo(todo.id);
         }}
       />
     </button>
@@ -181,13 +180,13 @@ const FolderTree: React.FC<FolderTreeProps> = ({ parentId, depth = 0, searchQuer
 
   return (
     <div style={{ marginLeft: `${depth * 16}px` }}>
-      {visibleNotes.length > 0 && (
+      {visibleTodos.length > 0 && (
         <div
           className="mb-2 space-y-1 rounded-xl border border-dashed border-transparent"
           onDragOver={(event) => event.preventDefault()}
-          onDrop={(event) => moveDraggedNote(event, parentId)}
+          onDrop={(event) => moveDraggedTodo(event, parentId)}
         >
-          {visibleNotes.map(renderNote)}
+          {visibleTodos.map(renderTodo)}
         </div>
       )}
 
@@ -201,7 +200,7 @@ const FolderTree: React.FC<FolderTreeProps> = ({ parentId, depth = 0, searchQuer
                 dragOverFolderId === folder.id ? 'bg-blue-100 dark:bg-blue-950' : ''
               }`}
               onClick={() => {
-                setCurrentNotesFolderId(folder.id);
+                setCurrentTodoFolderId(folder.id);
                 toggleExpand(folder.id);
               }}
               onDragOver={(event) => {
@@ -210,7 +209,7 @@ const FolderTree: React.FC<FolderTreeProps> = ({ parentId, depth = 0, searchQuer
               }}
               onDragLeave={() => setDragOverFolderId(null)}
               onDrop={(event) => {
-                moveDraggedNote(event, folder.id);
+                moveDraggedTodo(event, folder.id);
                 moveDraggedFolder(event, folder.id);
               }}
             >
@@ -227,11 +226,11 @@ const FolderTree: React.FC<FolderTreeProps> = ({ parentId, depth = 0, searchQuer
                 <div
                   draggable
                   onDragStart={(event) => {
-                    event.dataTransfer.setData('text/quicknotes-folder-id', folder.id);
+                    event.dataTransfer.setData('text/quicknotes-todo-folder-id', folder.id);
                     event.dataTransfer.effectAllowed = 'move';
                   }}
                   className={`flex min-w-0 flex-1 items-center gap-2 text-left ${
-                    currentNotesFolderId === folder.id
+                    currentTodoFolderId === folder.id
                       ? 'font-semibold text-blue-600 dark:text-blue-400'
                       : ''
                   }`}
@@ -245,9 +244,8 @@ const FolderTree: React.FC<FolderTreeProps> = ({ parentId, depth = 0, searchQuer
                   event.stopPropagation();
                   setCurrentNoteId(null);
                   setCurrentTodoId(null);
-                  setCurrentTodoFolderViewId(null);
-                  setCurrentNotesFolderViewId(folder.id);
-                  setCurrentNotesFolderId(folder.id);
+                  setCurrentTodoFolderViewId(folder.id);
+                  setCurrentTodoFolderId(folder.id);
                 }}
                 className="rounded p-1 text-gray-500 opacity-0 transition-opacity group-hover:opacity-100 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-dark-tertiary"
                 title="Ver carpeta"
@@ -265,7 +263,7 @@ const FolderTree: React.FC<FolderTreeProps> = ({ parentId, depth = 0, searchQuer
               </button>
             </div>
 
-            {isExpanded && <FolderTree parentId={folder.id} depth={depth + 1} searchQuery={searchQuery} />}
+            {isExpanded && <TodoFolderTree parentId={folder.id} depth={depth + 1} searchQuery={searchQuery} />}
           </div>
         );
       })}
@@ -273,4 +271,4 @@ const FolderTree: React.FC<FolderTreeProps> = ({ parentId, depth = 0, searchQuer
   );
 };
 
-export default FolderTree;
+export default TodoFolderTree;

@@ -7,13 +7,21 @@ import TodosView from './TodosView';
 import TagsView from './TagsView';
 import SettingsView from './SettingsView';
 import { FiMenu } from 'react-icons/fi';
-import FolderView from './FolderView';
+import NoteFolderView from './NoteFolderView';
+import TodoFolderView from './TodoFolderView';
 import NoteEditor from './NoteEditor';
 import TodoEditor from './TodoEditor';
 
 const App: React.FC = () => {
   useTheme();
-  const { currentTab, currentNoteId, currentTodoId, currentFolderViewId, showMainSidebar } = useAppStore();
+  const {
+    currentTab,
+    currentNoteId,
+    currentTodoId,
+    currentNotesFolderViewId,
+    currentTodoFolderViewId,
+    showMainSidebar,
+  } = useAppStore();
 
   return (
     <div className="relative flex h-screen bg-light-primary dark:bg-dark-primary text-gray-900 dark:text-gray-100">
@@ -40,8 +48,10 @@ const App: React.FC = () => {
             todoId={currentTodoId}
             onClose={() => useAppStore.getState().setCurrentTodoId(null)}
           />
-        ) : currentFolderViewId ? (
-          <FolderView />
+        ) : currentNotesFolderViewId ? (
+          <NoteFolderView />
+        ) : currentTodoFolderViewId ? (
+          <TodoFolderView />
         ) : currentTab === 'tags' ? (
           <TagsView />
         ) : currentTab === 'notes' ? (

@@ -13,11 +13,11 @@ import Tag from './Tag';
 
 const NotesView: React.FC = () => {
   const { notes, deleteNote, getNotesByFolder } = useNotesStore();
-  const { currentFolderId, setCurrentNoteId, searchQuery, selectedTagFilters, sortBy } = useAppStore();
+  const { currentNotesFolderId, setCurrentNoteId, searchQuery, selectedTagFilters, sortBy } = useAppStore();
   const { tags } = useTagsStore();
 
   const filteredNotes = useMemo(() => {
-    let result = currentFolderId !== null ? getNotesByFolder(currentFolderId) : notes;
+    let result = currentNotesFolderId !== null ? getNotesByFolder(currentNotesFolderId) : notes;
 
     // Apply search filter
     if (searchQuery) {
@@ -37,7 +37,7 @@ const NotesView: React.FC = () => {
     }
 
     return sortItems(result, sortBy);
-  }, [notes, currentFolderId, searchQuery, selectedTagFilters, sortBy]);
+  }, [notes, currentNotesFolderId, searchQuery, selectedTagFilters, sortBy]);
 
   return (
     <div className="p-6">

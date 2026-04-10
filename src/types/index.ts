@@ -52,6 +52,7 @@ export interface UserSettings {
 export interface Database {
   notes: Note[];
   folders: Folder[];
+  todoFolders?: Folder[];
   todos: Todo[];
   tags: Tag[];
   settings: UserSettings;

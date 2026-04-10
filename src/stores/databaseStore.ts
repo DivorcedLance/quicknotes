@@ -3,6 +3,7 @@ import type { Database } from '../types';
 import { useNotesStore } from './notesStore';
 import { useTodosStore } from './todosStore';
 import { useFoldersStore } from './foldersStore';
+import { useTodoFoldersStore } from './todoFoldersStore';
 import { useTagsStore } from './tagsStore';
 import { useSettingsStore } from './settingsStore';
 
@@ -18,9 +19,10 @@ export const useDatabaseStore = create<DatabaseStore>(() => ({
       notes: useNotesStore.getState().notes,
       todos: useTodosStore.getState().todos,
       folders: useFoldersStore.getState().folders,
+      todoFolders: useTodoFoldersStore.getState().folders,
       tags: useTagsStore.getState().tags,
       settings: useSettingsStore.getState().settings,
-      version: '1.0.0',
+      version: '1.1.0',
     };
     return JSON.stringify(database, null, 2);
   },
@@ -43,6 +45,9 @@ export const useDatabaseStore = create<DatabaseStore>(() => ({
       useNotesStore.getState().loadNotes(database.notes);
       useTodosStore.getState().loadTodos(database.todos);
       useFoldersStore.getState().loadFolders(database.folders);
+      useTodoFoldersStore
+        .getState()
+        .loadFolders(Array.isArray(database.todoFolders) ? database.todoFolders : []);
       useTagsStore.getState().loadTags(database.tags);
       if (database.settings) {
         useSettingsStore.getState().updateSettings(database.settings);
@@ -59,10 +64,12 @@ export const useDatabaseStore = create<DatabaseStore>(() => ({
     localStorage.removeItem('quicknotes_notes');
     localStorage.removeItem('quicknotes_todos');
     localStorage.removeItem('quicknotes_folders');
+    localStorage.removeItem('quicknotes_todo_folders');
     localStorage.removeItem('quicknotes_tags');
     useNotesStore.setState({ notes: [] });
     useTodosStore.setState({ todos: [] });
     useFoldersStore.setState({ folders: [] });
+    useTodoFoldersStore.setState({ folders: [] });
     useTagsStore.setState({ tags: [] });
   },
 }));

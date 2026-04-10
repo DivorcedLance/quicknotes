@@ -26,7 +26,7 @@ const presetColors = [
 ];
 
 const TagsView: React.FC = () => {
-  const { setCurrentTab, setCurrentFolderViewId, setCurrentNoteId, setCurrentTodoId } = useAppStore();
+  const { setCurrentTab, setCurrentNotesFolderViewId, setCurrentTodoFolderViewId, setCurrentNoteId, setCurrentTodoId } = useAppStore();
   const { tags, addTag, updateTag, deleteTag } = useTagsStore();
   const { notes } = useNotesStore();
   const { todos } = useTodosStore();
@@ -139,7 +139,8 @@ const TagsView: React.FC = () => {
           <button
             onClick={() => {
               setCurrentTab('notes');
-              setCurrentFolderViewId(null);
+              setCurrentNotesFolderViewId(null);
+              setCurrentTodoFolderViewId(null);
               setCurrentNoteId(null);
               setCurrentTodoId(null);
             }}

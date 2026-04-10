@@ -16,7 +16,7 @@ interface NoteEditorProps {
 const NoteEditor: React.FC<NoteEditorProps> = ({ noteId, onClose }) => {
   const { notes, updateNote, addNote } = useNotesStore();
   const { tags } = useTagsStore();
-  const { currentFolderId, showInspectorPanel } = useAppStore();
+  const { currentNotesFolderId, showInspectorPanel } = useAppStore();
   const editorRef = useRef<RichTextEditorHandle>(null);
   const [editorSearchQuery, setEditorSearchQuery] = useState('');
 
@@ -26,7 +26,7 @@ const NoteEditor: React.FC<NoteEditorProps> = ({ noteId, onClose }) => {
       id: generateId(),
       title: '',
       content: '',
-      folderId: currentFolderId,
+      folderId: currentNotesFolderId,
       images: [],
       createdAt: Date.now(),
       updatedAt: Date.now(),

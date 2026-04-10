@@ -27,13 +27,13 @@ const TodosView: React.FC = () => {
     selectedTagFilters,
     sortBy,
     groupByDate: groupByDateSetting,
-    currentFolderId,
+    currentTodoFolderId,
     setCurrentTodoId,
   } = useAppStore();
   const { tags } = useTagsStore();
 
   const filteredTodos = useMemo(() => {
-    let result = currentFolderId !== null ? getTodosByFolder(currentFolderId) : todos;
+    let result = currentTodoFolderId !== null ? getTodosByFolder(currentTodoFolderId) : todos;
 
     if (showOnlyActiveTodos) {
       result = result.filter((todo) => !todo.completed);
@@ -57,7 +57,7 @@ const TodosView: React.FC = () => {
     }
 
     return sortItems(result, sortBy);
-  }, [todos, currentFolderId, showOnlyActiveTodos, searchQuery, selectedTagFilters, sortBy]);
+  }, [todos, currentTodoFolderId, showOnlyActiveTodos, searchQuery, selectedTagFilters, sortBy]);
 
   const groupedTodos = useMemo(() => {
     if (groupByDateSetting) {
@@ -77,7 +77,7 @@ const TodosView: React.FC = () => {
               title: '',
               description: '',
               completed: false,
-              folderId: currentFolderId,
+              folderId: currentTodoFolderId,
               tags: [],
               createdAt: Date.now(),
               updatedAt: Date.now(),

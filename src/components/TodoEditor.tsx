@@ -4,7 +4,7 @@ import RichTextEditor, { type RichTextEditorHandle } from './RichTextEditor';
 import { useTodosStore } from '../stores/todosStore';
 import { useTagsStore } from '../stores/tagsStore';
 import { useAppStore } from '../stores/appStore';
-import { useFoldersStore } from '../stores/foldersStore';
+import { useTodoFoldersStore } from '../stores/todoFoldersStore';
 import { generateId } from '../utils/helpers';
 import type { Todo } from '../types';
 import Tag from './Tag';
@@ -17,8 +17,8 @@ interface TodoEditorProps {
 const TodoEditor: React.FC<TodoEditorProps> = ({ todoId, onClose }) => {
   const { todos, updateTodo, addTodo } = useTodosStore();
   const { tags } = useTagsStore();
-  const { showInspectorPanel, currentFolderId } = useAppStore();
-  const folders = useFoldersStore((state) => state.folders);
+  const { showInspectorPanel, currentTodoFolderId } = useAppStore();
+  const folders = useTodoFoldersStore((state) => state.folders);
   const editorRef = useRef<RichTextEditorHandle>(null);
   const [editorSearchQuery, setEditorSearchQuery] = useState('');
 
@@ -29,7 +29,7 @@ const TodoEditor: React.FC<TodoEditorProps> = ({ todoId, onClose }) => {
       title: '',
       description: '',
       completed: false,
-      folderId: currentFolderId,
+      folderId: currentTodoFolderId,
       tags: [],
       createdAt: Date.now(),
       updatedAt: Date.now(),

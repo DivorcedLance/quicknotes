@@ -4,31 +4,44 @@ import { useAppStore } from '../stores/appStore';
 import { useFoldersStore } from '../stores/foldersStore';
 import { useNotesStore } from '../stores/notesStore';
 import { useSettingsStore } from '../stores/settingsStore';
+import { useTodoFoldersStore } from '../stores/todoFoldersStore';
+import { useTodosStore } from '../stores/todosStore';
 import { generateId } from '../utils/helpers';
 import FolderTree from './FolderTree';
+import TodoFolderTree from './TodoFolderTree';
 
 const Sidebar: React.FC = () => {
   const {
     currentTab,
     setCurrentTab,
-    currentFolderId,
-    setCurrentFolderId,
+    currentNotesFolderId,
+    setCurrentNotesFolderId,
+    currentTodoFolderId,
+    setCurrentTodoFolderId,
     setCurrentNoteId,
+    setCurrentTodoId,
     sidebarMode,
     toggleSidebarMode,
   } = useAppStore();
   const { addFolder } = useFoldersStore();
+  const { addFolder: addTodoFolder } = useTodoFoldersStore();
   const { addNote } = useNotesStore();
+  const { addTodo } = useTodosStore();
   const { toggleTheme, getTheme } = useSettingsStore();
-  const [showFolderInput, setShowFolderInput] = useState(false);
-  const [folderName, setFolderName] = useState('');
-  const [explorerSearchQuery, setExplorerSearchQuery] = useState('');
+  const [showNotesFolderInput, setShowNotesFolderInput] = useState(false);
+  const [notesFolderName, setNotesFolderName] = useState('');
+  const [notesExplorerSearchQuery, setNotesExplorerSearchQuery] = useState('');
   const [isAllNotesDropActive, setIsAllNotesDropActive] = useState(false);
+  const [showTodoFolderInput, setShowTodoFolderInput] = useState(false);
+  const [todoFolderName, setTodoFolderName] = useState('');
+  const [todosExplorerSearchQuery, setTodosExplorerSearchQuery] = useState('');
+  const [isAllTodosDropActive, setIsAllTodosDropActive] = useState(false);
 
   const clearOpenViews = () => {
     setCurrentNoteId(null);
-    useAppStore.getState().setCurrentTodoId(null);
-    useAppStore.getState().setCurrentFolderViewId(null);
+    setCurrentTodoId(null);
+    useAppStore.getState().setCurrentNotesFolderViewId(null);
+    useAppStore.getState().setCurrentTodoFolderViewId(null);
   };
 
   const handleNewNote = () => {
@@ -36,7 +49,7 @@ const Sidebar: React.FC = () => {
       id: generateId(),
       title: '',
       content: '',
-      folderId: currentFolderId,
+      folderId: currentNotesFolderId,
       images: [],
       createdAt: Date.now(),
       updatedAt: Date.now(),
@@ -47,19 +60,51 @@ const Sidebar: React.FC = () => {
     setCurrentNoteId(newNote.id);
   };
 
-  const handleNewFolder = () => {
-    if (folderName.trim()) {
+  const handleNewNotesFolder = () => {
+    if (notesFolderName.trim()) {
       const newFolder = {
         id: generateId(),
-        name: folderName,
-        parentId: currentFolderId,
+        name: notesFolderName,
+        parentId: currentNotesFolderId,
         sortOrder: 0,
         createdAt: Date.now(),
         updatedAt: Date.now(),
       };
       addFolder(newFolder);
-      setFolderName('');
-      setShowFolderInput(false);
+      setNotesFolderName('');
+      setShowNotesFolderInput(false);
+    }
+  };
+
+  const handleNewTodo = () => {
+    const newTodo = {
+      id: generateId(),
+      title: '',
+      description: '',
+      completed: false,
+      folderId: currentTodoFolderId,
+      tags: [],
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+    };
+    addTodo(newTodo);
+    setCurrentTab('todos');
+    setCurrentTodoId(newTodo.id);
+  };
+
+  const handleNewTodoFolder = () => {
+    if (todoFolderName.trim()) {
+      const newFolder = {
+        id: generateId(),
+        name: todoFolderName,
+        parentId: currentTodoFolderId,
+        sortOrder: 0,
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+      };
+      addTodoFolder(newFolder);
+      setTodoFolderName('');
+      setShowTodoFolderInput(false);
     }
   };
 
@@ -87,7 +132,7 @@ const Sidebar: React.FC = () => {
             onClick={() => {
               clearOpenViews();
               setCurrentTab('notes');
-              setCurrentFolderId(null);
+              setCurrentNotesFolderId(null);
             }}
             className={`flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm transition-colors ${
               currentTab === 'notes'
@@ -101,6 +146,7 @@ const Sidebar: React.FC = () => {
             onClick={() => {
               clearOpenViews();
               setCurrentTab('todos');
+              setCurrentTodoFolderId(null);
             }}
             className={`flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm transition-colors ${
               currentTab === 'todos'
@@ -114,7 +160,7 @@ const Sidebar: React.FC = () => {
             onClick={() => {
               clearOpenViews();
               setCurrentTab('tags');
-              setCurrentFolderId(null);
+              setCurrentNotesFolderId(null);
             }}
             className={`flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm transition-colors ${
               currentTab === 'tags'
@@ -153,7 +199,7 @@ const Sidebar: React.FC = () => {
               <FiPlus /> {sidebarMode === 'compact' ? '' : 'Nueva Nota'}
             </button>
             <button
-              onClick={() => setShowFolderInput(true)}
+              onClick={() => setShowNotesFolderInput(true)}
               className={`flex items-center justify-center gap-2 rounded-lg bg-green-500 text-sm text-white transition-colors hover:bg-green-600 ${
                 sidebarMode === 'compact' ? 'w-full px-2 py-2' : 'flex-1 px-3 py-2'
               }`}
@@ -170,36 +216,36 @@ const Sidebar: React.FC = () => {
                 <input
                   type="text"
                   placeholder="Buscar en carpetas y notas"
-                  value={explorerSearchQuery}
-                  onChange={(event) => setExplorerSearchQuery(event.target.value)}
+                  value={notesExplorerSearchQuery}
+                  onChange={(event) => setNotesExplorerSearchQuery(event.target.value)}
                   className="w-full border-0 bg-transparent p-0 text-sm outline-none placeholder:text-gray-400"
                 />
               </div>
             </div>
           )}
 
-          {showFolderInput && (
+          {showNotesFolderInput && (
             <div className="mb-3 rounded-lg bg-gray-200 p-3 dark:bg-dark-tertiary">
               <input
                 type="text"
                 placeholder="Nombre de la carpeta"
-                value={folderName}
-                onChange={(e) => setFolderName(e.target.value)}
+                value={notesFolderName}
+                onChange={(e) => setNotesFolderName(e.target.value)}
                 onKeyPress={(e) => {
-                  if (e.key === 'Enter') handleNewFolder();
+                  if (e.key === 'Enter') handleNewNotesFolder();
                 }}
                 autoFocus
                 className="input-field mb-2 text-sm"
               />
               <div className="flex gap-2">
                 <button
-                  onClick={handleNewFolder}
+                  onClick={handleNewNotesFolder}
                   className="flex-1 rounded bg-green-500 px-2 py-1 text-sm text-white hover:bg-green-600"
                 >
                   Crear
                 </button>
                 <button
-                  onClick={() => setShowFolderInput(false)}
+                  onClick={() => setShowNotesFolderInput(false)}
                   className="flex-1 rounded bg-gray-400 px-2 py-1 text-sm text-white hover:bg-gray-500"
                 >
                   Cancelar
@@ -211,7 +257,7 @@ const Sidebar: React.FC = () => {
           <div className="space-y-1 text-sm">
             <button
               onClick={() => {
-                setCurrentFolderId(null);
+                setCurrentNotesFolderId(null);
                 setCurrentNoteId(null);
               }}
               onDragOver={(event) => {
@@ -234,7 +280,7 @@ const Sidebar: React.FC = () => {
                 setIsAllNotesDropActive(false);
               }}
               className={`flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left transition-colors ${
-                currentFolderId === null
+                currentNotesFolderId === null
                   ? 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-200'
                   : isAllNotesDropActive
                     ? 'bg-blue-50 text-blue-700 ring-1 ring-blue-300 dark:bg-blue-950 dark:text-blue-200 dark:ring-blue-800'
@@ -244,7 +290,116 @@ const Sidebar: React.FC = () => {
             >
               <FiBookmark size={15} /> {sidebarMode === 'compact' ? '' : 'Todas las Notas'}
             </button>
-            {sidebarMode !== 'compact' && <FolderTree parentId={null} searchQuery={explorerSearchQuery} />}
+            {sidebarMode !== 'compact' && <FolderTree parentId={null} searchQuery={notesExplorerSearchQuery} />}
+          </div>
+        </div>
+      )}
+
+      {currentTab === 'todos' && (
+        <div className={`flex-1 overflow-y-auto ${sidebarMode === 'compact' ? 'p-2' : 'p-3'}`}>
+          <div className={`mb-3 ${sidebarMode === 'compact' ? 'space-y-2' : 'flex gap-2'}`}>
+            <button
+              onClick={handleNewTodo}
+              className={`flex items-center justify-center gap-2 rounded-lg bg-blue-500 text-sm text-white transition-colors hover:bg-blue-600 ${
+                sidebarMode === 'compact' ? 'w-full px-2 py-2' : 'flex-1 px-3 py-2'
+              }`}
+              title="Nueva tarea"
+            >
+              <FiPlus /> {sidebarMode === 'compact' ? '' : 'Nueva Tarea'}
+            </button>
+            <button
+              onClick={() => setShowTodoFolderInput(true)}
+              className={`flex items-center justify-center gap-2 rounded-lg bg-green-500 text-sm text-white transition-colors hover:bg-green-600 ${
+                sidebarMode === 'compact' ? 'w-full px-2 py-2' : 'flex-1 px-3 py-2'
+              }`}
+              title="Nueva carpeta de tareas"
+            >
+              <FiFolder /> {sidebarMode === 'compact' ? '' : 'Carpeta'}
+            </button>
+          </div>
+
+          {sidebarMode !== 'compact' && (
+            <div className="mb-3 rounded-lg border border-gray-200 bg-white px-3 py-2 dark:border-dark-tertiary dark:bg-dark-secondary">
+              <div className="flex items-center gap-2">
+                <FiSearch className="shrink-0 text-gray-400" size={16} />
+                <input
+                  type="text"
+                  placeholder="Buscar en carpetas y tareas"
+                  value={todosExplorerSearchQuery}
+                  onChange={(event) => setTodosExplorerSearchQuery(event.target.value)}
+                  className="w-full border-0 bg-transparent p-0 text-sm outline-none placeholder:text-gray-400"
+                />
+              </div>
+            </div>
+          )}
+
+          {showTodoFolderInput && (
+            <div className="mb-3 rounded-lg bg-gray-200 p-3 dark:bg-dark-tertiary">
+              <input
+                type="text"
+                placeholder="Nombre de la carpeta"
+                value={todoFolderName}
+                onChange={(e) => setTodoFolderName(e.target.value)}
+                onKeyPress={(e) => {
+                  if (e.key === 'Enter') handleNewTodoFolder();
+                }}
+                autoFocus
+                className="input-field mb-2 text-sm"
+              />
+              <div className="flex gap-2">
+                <button
+                  onClick={handleNewTodoFolder}
+                  className="flex-1 rounded bg-green-500 px-2 py-1 text-sm text-white hover:bg-green-600"
+                >
+                  Crear
+                </button>
+                <button
+                  onClick={() => setShowTodoFolderInput(false)}
+                  className="flex-1 rounded bg-gray-400 px-2 py-1 text-sm text-white hover:bg-gray-500"
+                >
+                  Cancelar
+                </button>
+              </div>
+            </div>
+          )}
+
+          <div className="space-y-1 text-sm">
+            <button
+              onClick={() => {
+                setCurrentTodoFolderId(null);
+                setCurrentTodoId(null);
+              }}
+              onDragOver={(event) => {
+                event.preventDefault();
+                setIsAllTodosDropActive(true);
+              }}
+              onDragLeave={() => setIsAllTodosDropActive(false)}
+              onDrop={(event) => {
+                event.preventDefault();
+                const todoId = event.dataTransfer.getData('text/quicknotes-todo-id');
+                const folderId = event.dataTransfer.getData('text/quicknotes-todo-folder-id');
+                if (todoId) {
+                  const { moveTodoToFolder } = useTodosStore.getState();
+                  moveTodoToFolder(todoId, null);
+                }
+                if (folderId) {
+                  const { moveFolder } = useTodoFoldersStore.getState();
+                  moveFolder(folderId, null);
+                }
+                setIsAllTodosDropActive(false);
+              }}
+              className={`flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left transition-colors ${
+                currentTodoFolderId === null
+                  ? 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-200'
+                  : isAllTodosDropActive
+                    ? 'bg-blue-50 text-blue-700 ring-1 ring-blue-300 dark:bg-blue-950 dark:text-blue-200 dark:ring-blue-800'
+                    : 'hover:bg-gray-300 dark:hover:bg-dark-tertiary'
+              }`}
+              title="Todas las tareas"
+            >
+              <FiCheck size={15} /> {sidebarMode === 'compact' ? '' : 'Todas las Tareas'}
+            </button>
+            {sidebarMode !== 'compact' && <TodoFolderTree parentId={null} searchQuery={todosExplorerSearchQuery} />}
           </div>
         </div>
       )}

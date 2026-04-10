@@ -5,12 +5,16 @@ interface AppStore {
   setCurrentTab: (tab: 'notes' | 'todos' | 'tags' | 'settings') => void;
   currentNoteId: string | null;
   setCurrentNoteId: (noteId: string | null) => void;
-  currentFolderId: string | null;
-  setCurrentFolderId: (folderId: string | null) => void;
-  currentFolderViewId: string | null;
-  setCurrentFolderViewId: (folderId: string | null) => void;
+  currentNotesFolderId: string | null;
+  setCurrentNotesFolderId: (folderId: string | null) => void;
+  currentNotesFolderViewId: string | null;
+  setCurrentNotesFolderViewId: (folderId: string | null) => void;
   currentTodoId: string | null;
   setCurrentTodoId: (todoId: string | null) => void;
+  currentTodoFolderId: string | null;
+  setCurrentTodoFolderId: (folderId: string | null) => void;
+  currentTodoFolderViewId: string | null;
+  setCurrentTodoFolderViewId: (folderId: string | null) => void;
   searchQuery: string;
   setSearchQuery: (query: string) => void;
   showMainSidebar: boolean;
@@ -37,14 +41,20 @@ export const useAppStore = create<AppStore>((set) => ({
   currentNoteId: null,
   setCurrentNoteId: (noteId) => set({ currentNoteId: noteId }),
   
-  currentFolderId: null,
-  setCurrentFolderId: (folderId) => set({ currentFolderId: folderId }),
+  currentNotesFolderId: null,
+  setCurrentNotesFolderId: (folderId) => set({ currentNotesFolderId: folderId }),
 
-  currentFolderViewId: null,
-  setCurrentFolderViewId: (folderId) => set({ currentFolderViewId: folderId }),
+  currentNotesFolderViewId: null,
+  setCurrentNotesFolderViewId: (folderId) => set({ currentNotesFolderViewId: folderId }),
 
   currentTodoId: null,
   setCurrentTodoId: (todoId) => set({ currentTodoId: todoId }),
+
+  currentTodoFolderId: null,
+  setCurrentTodoFolderId: (folderId) => set({ currentTodoFolderId: folderId }),
+
+  currentTodoFolderViewId: null,
+  setCurrentTodoFolderViewId: (folderId) => set({ currentTodoFolderViewId: folderId }),
 
   searchQuery: '',
   setSearchQuery: (query) => set({ searchQuery: query }),
