@@ -1,18 +1,69 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   FiDownload,
   FiUpload,
   FiRefreshCw,
+  FiSmartphone,
 } from 'react-icons/fi';
 import { useSettingsStore } from '../stores/settingsStore';
 import { useDatabaseStore } from '../stores/databaseStore';
 import { downloadJson, readFileAsText } from '../utils/helpers';
+
+type BeforeInstallPromptEvent = Event & {
+  prompt: () => Promise<void>;
+  userChoice: Promise<{
+    outcome: 'accepted' | 'dismissed';
+    platform?: string;
+  }>;
+};
 
 const SettingsView: React.FC = () => {
   const { settings, updateSettings } = useSettingsStore();
   const { exportDatabase, importDatabase, resetDatabase } = useDatabaseStore();
   const [activeTab, setActiveTab] = useState<'general' | 'database'>('general');
   const [showReset, setShowReset] = useState(false);
+  const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
+  const [canInstall, setCanInstall] = useState(false);
+  const [isInstalled, setIsInstalled] = useState(false);
+
+  useEffect(() => {
+    const isStandalone = window.matchMedia('(display-mode: standalone)').matches;
+    setIsInstalled(isStandalone);
+
+    const handleBeforeInstallPrompt = (event: Event) => {
+      event.preventDefault();
+      setDeferredPrompt(event as BeforeInstallPromptEvent);
+      setCanInstall(true);
+    };
+
+    const handleAppInstalled = () => {
+      setDeferredPrompt(null);
+      setCanInstall(false);
+      setIsInstalled(true);
+    };
+
+    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt as EventListener);
+    window.addEventListener('appinstalled', handleAppInstalled);
+
+    return () => {
+      window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt as EventListener);
+      window.removeEventListener('appinstalled', handleAppInstalled);
+    };
+  }, []);
+
+  const handleInstallPwa = async () => {
+    if (!deferredPrompt) {
+      return;
+    }
+
+    await deferredPrompt.prompt();
+    const choiceResult = await deferredPrompt.userChoice;
+
+    if (choiceResult.outcome === 'accepted') {
+      setDeferredPrompt(null);
+      setCanInstall(false);
+    }
+  };
 
   const handleExport = () => {
     const data = exportDatabase();
@@ -110,6 +161,23 @@ const SettingsView: React.FC = () => {
               📱 QuickNotes es una PWA y puede ser instalada en tu dispositivo
               para usarla sin conexión a internet.
             </p>
+            <div className="mt-4 flex flex-wrap items-center gap-3">
+              <button
+                onClick={handleInstallPwa}
+                disabled={!canInstall || isInstalled}
+                className="flex items-center gap-2 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors disabled:cursor-not-allowed disabled:bg-blue-300 dark:disabled:bg-blue-800"
+              >
+                <FiSmartphone />
+                {isInstalled ? 'PWA instalada' : 'Instalar PWA'}
+              </button>
+              <span className="text-xs text-blue-700 dark:text-blue-200">
+                {isInstalled
+                  ? 'La aplicación ya está instalada en este dispositivo.'
+                  : canInstall
+                    ? 'El navegador ya permite instalar esta app.'
+                    : 'Abre la aplicación en un navegador compatible para habilitar la instalación.'}
+              </span>
+            </div>
           </div>
         </div>
       )}

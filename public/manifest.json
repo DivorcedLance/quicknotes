@@ -2,22 +2,22 @@
   "name": "QuickNotes - Notas Rápidas",
   "short_name": "QuickNotes",
   "description": "Una aplicación de notas rápidas tipo OneNote con soporte para Markdown, imágenes y lista de tareas",
-  "start_url": "/",
-  "scope": "/",
+  "start_url": "./",
+  "scope": "./",
   "display": "standalone",
   "background_color": "#ffffff",
   "theme_color": "#3b82f6",
   "orientation": "portrait-primary",
   "icons": [
     {
-      "src": "/favicon.svg",
+      "src": "./pwa-icon.svg",
       "sizes": "any",
       "type": "image/svg+xml",
       "purpose": "any"
     },
     {
-      "src": "/favicon.svg",
-      "sizes": "192x192",
+      "src": "./pwa-icon.svg",
+      "sizes": "any",
       "type": "image/svg+xml",
       "purpose": "maskable"
     }
@@ -28,14 +28,14 @@
       "name": "Nueva Nota",
       "short_name": "Nota",
       "description": "Crear una nueva nota",
-      "url": "/?tab=notes",
+      "url": "./?tab=notes",
       "icons": []
     },
     {
       "name": "Nueva Tarea",
       "short_name": "Tarea",
       "description": "Crear una nueva tarea",
-      "url": "/?tab=todos",
+      "url": "./?tab=todos",
       "icons": []
     }
   ]

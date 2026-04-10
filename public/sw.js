@@ -1,9 +1,24 @@
-const CACHE_NAME = 'quicknotes-shell-v2'
+const CACHE_NAME = 'quicknotes-shell-v3'
 const APP_SHELL = [
-  '/favicon.svg',
-  '/icons.svg',
-  '/manifest.json',
+  new URL('./index.html', self.location).href,
+  new URL('./favicon.svg', self.location).href,
+  new URL('./pwa-icon.svg', self.location).href,
+  new URL('./manifest.json', self.location).href,
 ]
+const ASSET_PATH_PREFIX = new URL('./assets/', self.location).pathname
+const STATIC_EXTENSIONS = ['.css', '.js', '.svg', '.png', '.jpg', '.jpeg', '.webp', '.ico', '.json', '.map']
+
+const isStaticAssetRequest = (requestUrl) => {
+  if (requestUrl.origin !== self.location.origin) {
+    return false
+  }
+
+  return (
+    requestUrl.pathname.startsWith(ASSET_PATH_PREFIX) ||
+    APP_SHELL.includes(requestUrl.href) ||
+    STATIC_EXTENSIONS.some((extension) => requestUrl.pathname.endsWith(extension))
+  )
+}
 
 // Install event - cache static assets
 self.addEventListener('install', (event) => {
@@ -49,7 +64,7 @@ self.addEventListener('fetch', (event) => {
         .then(async (response) => {
           if (response && response.status === 200) {
             const cache = await caches.open(CACHE_NAME)
-            cache.put('/index.html', response.clone())
+            cache.put(new URL('./index.html', self.location).href, response.clone())
           }
 
           return response
@@ -71,9 +86,7 @@ self.addEventListener('fetch', (event) => {
     return
   }
 
-  const isAssetRequest = requestUrl.pathname.startsWith('/assets/')
-
-  if (!isAssetRequest) {
+  if (!isStaticAssetRequest(requestUrl)) {
     return
   }
 
