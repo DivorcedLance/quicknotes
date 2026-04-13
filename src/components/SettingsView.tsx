@@ -26,8 +26,34 @@ const SettingsView: React.FC = () => {
   const [canInstall, setCanInstall] = useState(false);
   const [isInstalled, setIsInstalled] = useState(false);
 
+  const getInstallInstructions = () => {
+    const ua = navigator.userAgent.toLowerCase();
+    const isIos = /iphone|ipad|ipod/.test(ua);
+    const isSafari = isIos || (/safari/.test(ua) && !/chrome|chromium|edg/.test(ua));
+    const isChromium = /chrome|chromium|edg/.test(ua);
+
+    if (!window.isSecureContext && window.location.hostname !== 'localhost') {
+      return 'La instalación PWA requiere HTTPS. Abre QuickNotes desde una URL segura (https://...) o localhost.';
+    }
+
+    if (isIos || isSafari) {
+      return 'En Safari: toca Compartir y luego "Añadir a pantalla de inicio" para instalar QuickNotes.';
+    }
+
+    if (isChromium) {
+      return 'En Chrome/Edge: abre el menú del navegador y elige "Instalar app" o "Añadir a pantalla de inicio".';
+    }
+
+    return 'Tu navegador no expone el prompt automático. Usa la opción de instalar/agregar a pantalla de inicio desde el menú del navegador.';
+  };
+
   useEffect(() => {
-    const isStandalone = window.matchMedia('(display-mode: standalone)').matches;
+    const navigatorWithStandalone = navigator as Navigator & {
+      standalone?: boolean;
+    };
+    const isStandalone =
+      window.matchMedia('(display-mode: standalone)').matches ||
+      navigatorWithStandalone.standalone === true;
     setIsInstalled(isStandalone);
 
     const handleBeforeInstallPrompt = (event: Event) => {
@@ -52,7 +78,12 @@ const SettingsView: React.FC = () => {
   }, []);
 
   const handleInstallPwa = async () => {
+    if (isInstalled) {
+      return;
+    }
+
     if (!deferredPrompt) {
+      alert(getInstallInstructions());
       return;
     }
 
@@ -164,18 +195,22 @@ const SettingsView: React.FC = () => {
             <div className="mt-4 flex flex-wrap items-center gap-3">
               <button
                 onClick={handleInstallPwa}
-                disabled={!canInstall || isInstalled}
+                disabled={isInstalled}
                 className="flex items-center gap-2 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors disabled:cursor-not-allowed disabled:bg-blue-300 dark:disabled:bg-blue-800"
               >
                 <FiSmartphone />
-                {isInstalled ? 'PWA instalada' : 'Instalar PWA'}
+                {isInstalled
+                  ? 'PWA instalada'
+                  : canInstall
+                    ? 'Instalar PWA'
+                    : 'Cómo instalar PWA'}
               </button>
               <span className="text-xs text-blue-700 dark:text-blue-200">
                 {isInstalled
                   ? 'La aplicación ya está instalada en este dispositivo.'
                   : canInstall
                     ? 'El navegador ya permite instalar esta app.'
-                    : 'Abre la aplicación en un navegador compatible para habilitar la instalación.'}
+                    : 'Si el navegador no muestra el prompt, te explicamos cómo instalarla manualmente.'}
               </span>
             </div>
           </div>
