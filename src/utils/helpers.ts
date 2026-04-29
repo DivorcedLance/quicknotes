@@ -138,11 +138,7 @@ export const stripMarkdownImages = (text: string): string => {
 };
 
 export const htmlToPreviewText = (html: string): string => {
-  const withImageTokens = html
-    .replace(/<img\b[^>]*alt="([^"]*)"[^>]*>/gi, (_, alt: string) => {
-      return alt ? ` [imagen: ${alt}] ` : ' [imagen] ';
-    })
-    .replace(/<img\b[^>]*>/gi, ' [imagen] ');
+  const withImageTokens = html.replace(/<img\b[^>]*>/gi, ' [imagen] ');
 
   const parser = new DOMParser();
   const documentNode = parser.parseFromString(withImageTokens, 'text/html');
@@ -155,6 +151,36 @@ export const clampTextPreview = (text: string, maxLength = 100): string => {
   }
 
   return `${text.slice(0, maxLength).trimEnd()}...`;
+};
+
+export const getSearchSnippet = (
+  text: string,
+  query: string,
+  contextLength = 45,
+  maxLength = 140
+): string => {
+  const normalizedQuery = query.trim().toLowerCase();
+  const normalizedText = text.trim();
+
+  if (!normalizedQuery) {
+    return clampTextPreview(normalizedText, maxLength);
+  }
+
+  const lowerText = normalizedText.toLowerCase();
+  const matchIndex = lowerText.indexOf(normalizedQuery);
+
+  if (matchIndex < 0) {
+    return clampTextPreview(normalizedText, maxLength);
+  }
+
+  const start = Math.max(0, matchIndex - contextLength);
+  const end = Math.min(normalizedText.length, matchIndex + normalizedQuery.length + contextLength);
+  const snippet = normalizedText.slice(start, end).trim();
+
+  const prefix = start > 0 ? '...' : '';
+  const suffix = end < normalizedText.length ? '...' : '';
+
+  return `${prefix}${snippet}${suffix}`;
 };
 
 export const sortItems = <T extends { createdAt?: number; updatedAt?: number; title?: string; name?: string }>(

@@ -24,7 +24,7 @@ export const useTodosStore = create<TodosStore>((set, get) => ({
 
   addTodo: (todo) => {
     set((state) => {
-      const newTodos = [...state.todos, todo];
+      const newTodos = [...state.todos, { ...todo, updatedAt: todo.updatedAt ?? todo.createdAt }];
       localStorage.setItem('quicknotes_todos', JSON.stringify(newTodos));
       return { todos: newTodos };
     });

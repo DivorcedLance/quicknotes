@@ -25,7 +25,6 @@ const Sidebar: React.FC = () => {
   } = useAppStore();
   const { addFolder } = useFoldersStore();
   const { addFolder: addTodoFolder } = useTodoFoldersStore();
-  const { addNote } = useNotesStore();
   const { addTodo } = useTodosStore();
   const { toggleTheme, getTheme } = useSettingsStore();
   const [showNotesFolderInput, setShowNotesFolderInput] = useState(false);
@@ -45,19 +44,9 @@ const Sidebar: React.FC = () => {
   };
 
   const handleNewNote = () => {
-    const newNote = {
-      id: generateId(),
-      title: '',
-      content: '',
-      folderId: currentNotesFolderId,
-      images: [],
-      createdAt: Date.now(),
-      updatedAt: Date.now(),
-      tags: [],
-    };
-    addNote(newNote);
+    const draftNoteId = generateId();
     setCurrentTab('notes');
-    setCurrentNoteId(newNote.id);
+    setCurrentNoteId(draftNoteId);
   };
 
   const handleNewNotesFolder = () => {

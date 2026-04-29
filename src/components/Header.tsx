@@ -42,7 +42,7 @@ const Header: React.FC = () => {
           <h1 className="text-2xl font-bold">{getTitle()}</h1>
         </div>
 
-        {currentTab !== 'settings' && (
+        {currentTab !== 'settings' && currentTab !== 'todos' && (
           <div className="hidden md:flex items-center gap-2 flex-1 max-w-md mx-4">
             <FiSearch className="text-gray-500" />
             <input
@@ -76,7 +76,7 @@ const Header: React.FC = () => {
       </div>
 
       {/* Mobile search */}
-      {currentTab !== 'settings' && (
+      {currentTab !== 'settings' && currentTab !== 'todos' && (
         <div className="md:hidden mt-3 flex items-center gap-2">
           <FiSearch className="text-gray-500" />
           <input

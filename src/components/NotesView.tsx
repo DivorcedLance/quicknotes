@@ -7,9 +7,11 @@ import {
   clampTextPreview,
   formatDate,
   htmlToPreviewText,
+  getSearchSnippet,
   sortItems,
 } from '../utils/helpers';
 import Tag from './Tag';
+import SearchHighlight from './SearchHighlight';
 
 const NotesView: React.FC = () => {
   const { notes, deleteNote, getNotesByFolder } = useNotesStore();
@@ -64,7 +66,7 @@ const NotesView: React.FC = () => {
               <div className="flex justify-between items-start mb-2">
                 <div className="flex-1" onClick={() => setCurrentNoteId(note.id)}>
                   <h3 className="font-bold text-lg truncate group-hover:text-blue-500">
-                    {note.title || 'Sin título'}
+                    <SearchHighlight text={note.title || 'Sin título'} query={searchQuery} />
                   </h3>
                   <p className="text-sm text-gray-500 dark:text-gray-400">
                     {formatDate(note.updatedAt)}
@@ -79,7 +81,14 @@ const NotesView: React.FC = () => {
               </div>
 
               <p className="text-sm text-gray-600 dark:text-gray-300 line-clamp-3 mb-3">
-                {clampTextPreview(htmlToPreviewText(note.content) || 'Sin contenido', 120)}
+                <SearchHighlight
+                  text={
+                    searchQuery
+                      ? getSearchSnippet(htmlToPreviewText(note.content) || 'Sin contenido', searchQuery, 60, 140)
+                      : clampTextPreview(htmlToPreviewText(note.content) || 'Sin contenido', 120)
+                  }
+                  query={searchQuery}
+                />
               </p>
 
               {note.tags.length > 0 && (

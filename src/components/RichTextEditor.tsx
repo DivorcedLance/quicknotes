@@ -26,6 +26,7 @@ interface RichTextEditorProps {
 
 export interface RichTextEditorHandle {
   search: (query: string) => boolean;
+  getHtml: () => string;
 }
 
 const allowedImageWidth = {
@@ -45,7 +46,6 @@ const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorProps>(({
   const savedRangeRef = useRef<Range | null>(null);
   const [selectedImage, setSelectedImage] = useState<HTMLImageElement | null>(null);
   const [selectedImageWidth, setSelectedImageWidth] = useState(allowedImageWidth.default);
-  const [selectedImageRotation, setSelectedImageRotation] = useState(0);
   const lastSearchStateRef = useRef<{ query: string; index: number }>({ query: '', index: 0 });
 
   useEffect(() => {
@@ -237,7 +237,6 @@ const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorProps>(({
       setSelectedImageWidth(
         Number.parseInt(imageElement.style.width || '', 10) || allowedImageWidth.default
       );
-      setSelectedImageRotation(Number.parseInt(imageElement.dataset.qnRotation || '0', 10) || 0);
       return;
     }
 
@@ -264,21 +263,62 @@ const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorProps>(({
     selectedImage.remove();
     setSelectedImage(null);
     setSelectedImageWidth(allowedImageWidth.default);
-    setSelectedImageRotation(0);
     commitChange();
   };
 
-  const rotateSelectedImage = () => {
+  const rotateSource90 = (source: string): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const image = new Image();
+
+      image.onload = () => {
+        const canvas = document.createElement('canvas');
+        canvas.width = image.naturalHeight;
+        canvas.height = image.naturalWidth;
+
+        const context = canvas.getContext('2d');
+        if (!context) {
+          reject(new Error('No se pudo rotar la imagen'));
+          return;
+        }
+
+        context.translate(canvas.width, 0);
+        context.rotate(Math.PI / 2);
+        context.drawImage(image, 0, 0);
+
+        resolve(canvas.toDataURL('image/png'));
+      };
+
+      image.onerror = () => reject(new Error('No se pudo cargar la imagen para rotar'));
+      image.src = source;
+    });
+  };
+
+  const rotateSelectedImage = async () => {
     if (!selectedImage) {
       return;
     }
 
-    const nextRotation = (selectedImageRotation + 90) % 360;
-    selectedImage.dataset.qnRotation = String(nextRotation);
-    selectedImage.style.transform = `rotate(${nextRotation}deg)`;
-    selectedImage.style.transformOrigin = 'center center';
-    setSelectedImageRotation(nextRotation);
-    commitChange();
+    const source = selectedImage.getAttribute('src');
+    if (!source) {
+      return;
+    }
+
+    try {
+      const rotatedSource = await rotateSource90(source);
+      selectedImage.setAttribute('src', rotatedSource);
+      selectedImage.style.transform = '';
+      selectedImage.style.transformOrigin = '';
+      selectedImage.dataset.qnRotation = '0';
+      commitChange();
+    } catch {
+      // Fallback para no bloquear la acción si falla canvas (por ejemplo, restricciones CORS).
+      const currentRotation = Number.parseInt(selectedImage.dataset.qnRotation || '0', 10) || 0;
+      const nextRotation = (currentRotation + 90) % 360;
+      selectedImage.dataset.qnRotation = String(nextRotation);
+      selectedImage.style.transform = `rotate(${nextRotation}deg)`;
+      selectedImage.style.transformOrigin = 'center center';
+      commitChange();
+    }
   };
 
   const toggleFileDialog = () => {
@@ -347,6 +387,7 @@ const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorProps>(({
 
   useImperativeHandle(ref, () => ({
     search,
+    getHtml: () => editorRef.current?.innerHTML ?? '',
   }));
 
   return (

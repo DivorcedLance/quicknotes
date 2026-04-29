@@ -15,7 +15,7 @@ interface TodoEditorProps {
 }
 
 const TodoEditor: React.FC<TodoEditorProps> = ({ todoId, onClose }) => {
-  const { todos, updateTodo, addTodo } = useTodosStore();
+  const { todos, updateTodo, addTodo, deleteTodo } = useTodosStore();
   const { tags } = useTagsStore();
   const { showInspectorPanel, currentTodoFolderId } = useAppStore();
   const folders = useTodoFoldersStore((state) => state.folders);
@@ -66,6 +66,19 @@ const TodoEditor: React.FC<TodoEditorProps> = ({ todoId, onClose }) => {
     );
   };
 
+  const handleBack = () => {
+    const isEmptyTodo = todo.title.trim().length === 0 && todo.description.trim().length === 0;
+
+    if (todoId && isEmptyTodo) {
+      const todoExists = todos.some((item) => item.id === todoId);
+      if (todoExists) {
+        deleteTodo(todoId);
+      }
+    }
+
+    onClose();
+  };
+
   useEffect(() => {
     const timeout = window.setTimeout(() => {
       if (editorSearchQuery.trim()) {
@@ -79,7 +92,7 @@ const TodoEditor: React.FC<TodoEditorProps> = ({ todoId, onClose }) => {
   return (
     <div className="relative h-full overflow-hidden bg-light-primary text-gray-900 dark:bg-dark-primary dark:text-gray-100">
       <button
-        onClick={onClose}
+        onClick={handleBack}
         className="absolute left-4 top-4 z-20 inline-flex items-center gap-2 rounded-full border border-gray-200 bg-white/90 px-3 py-2 text-sm backdrop-blur hover:bg-white dark:border-dark-tertiary dark:bg-dark-secondary/90 dark:hover:bg-dark-secondary"
       >
         <FiArrowLeft /> Volver

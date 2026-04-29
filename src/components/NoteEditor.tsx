@@ -14,16 +14,18 @@ interface NoteEditorProps {
 }
 
 const NoteEditor: React.FC<NoteEditorProps> = ({ noteId, onClose }) => {
-  const { notes, updateNote, addNote } = useNotesStore();
+  const { notes, updateNote, addNote, deleteNote } = useNotesStore();
   const { tags } = useTagsStore();
   const { currentNotesFolderId, showInspectorPanel } = useAppStore();
   const editorRef = useRef<RichTextEditorHandle>(null);
+  const titleInputRef = useRef<HTMLInputElement>(null);
+  const isClosingRef = useRef(false);
   const [editorSearchQuery, setEditorSearchQuery] = useState('');
 
   const existingNote = noteId ? notes.find((n) => n.id === noteId) : null;
   const [note, setNote] = useState<Note>(
     existingNote || {
-      id: generateId(),
+      id: noteId ?? generateId(),
       title: '',
       content: '',
       folderId: currentNotesFolderId,
@@ -38,6 +40,20 @@ const NoteEditor: React.FC<NoteEditorProps> = ({ noteId, onClose }) => {
 
   useEffect(() => {
     const timeout = window.setTimeout(() => {
+      if (isClosingRef.current) {
+        return;
+      }
+
+      const hasMeaningfulContent =
+        note.title.trim().length > 0 ||
+        note.content.trim().length > 0 ||
+        note.images.length > 0 ||
+        selectedTags.length > 0;
+
+      if (!noteId && !hasMeaningfulContent) {
+        return;
+      }
+
       const nextNote = {
         ...note,
         tags: selectedTags,
@@ -60,6 +76,54 @@ const NoteEditor: React.FC<NoteEditorProps> = ({ noteId, onClose }) => {
     );
   };
 
+  const handleBack = () => {
+    isClosingRef.current = true;
+
+    const latestTitle = titleInputRef.current?.value ?? note.title;
+    const latestContent = editorRef.current?.getHtml() ?? note.content;
+    const normalizedTitle = latestTitle.trim().length === 0 ? '' : latestTitle;
+
+    const nextNote = {
+      ...note,
+      title: normalizedTitle,
+      content: latestContent,
+      tags: selectedTags,
+      updatedAt: Date.now(),
+    };
+
+    const hasMeaningfulContent =
+      nextNote.title.trim().length > 0 ||
+      nextNote.content.trim().length > 0 ||
+      nextNote.images.length > 0 ||
+      selectedTags.length > 0;
+
+    const isEmptyNote =
+      nextNote.title.trim().length === 0 &&
+      nextNote.content.trim().length === 0 &&
+      nextNote.images.length === 0;
+
+    if (noteId) {
+      const noteExists = notes.some((item) => item.id === noteId);
+      if (noteExists) {
+        if (isEmptyNote) {
+          deleteNote(noteId);
+        } else {
+          updateNote(noteId, nextNote);
+        }
+      } else if (hasMeaningfulContent) {
+        addNote(nextNote);
+      }
+      onClose();
+      return;
+    }
+
+    if (hasMeaningfulContent) {
+      addNote(nextNote);
+    }
+
+    onClose();
+  };
+
   useEffect(() => {
     const timeout = window.setTimeout(() => {
       if (editorSearchQuery.trim()) {
@@ -73,7 +137,7 @@ const NoteEditor: React.FC<NoteEditorProps> = ({ noteId, onClose }) => {
   return (
     <div className="relative h-full overflow-hidden bg-light-primary text-gray-900 dark:bg-dark-primary dark:text-gray-100">
       <button
-        onClick={onClose}
+        onClick={handleBack}
         className="absolute left-4 top-4 z-20 inline-flex items-center gap-2 rounded-full border border-gray-200 bg-white/90 px-3 py-2 text-sm backdrop-blur hover:bg-white dark:border-dark-tertiary dark:bg-dark-secondary/90 dark:hover:bg-dark-secondary"
       >
         <FiArrowLeft /> Volver
@@ -103,6 +167,7 @@ const NoteEditor: React.FC<NoteEditorProps> = ({ noteId, onClose }) => {
         <div className="overflow-auto p-4 lg:p-6">
           <div className="mx-auto flex max-w-6xl flex-col gap-4">
             <input
+              ref={titleInputRef}
               type="text"
               placeholder="Título de la nota"
               value={note.title}
