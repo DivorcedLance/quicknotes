@@ -1,6 +1,11 @@
 import { create } from 'zustand';
 import type { Todo } from '../types';
 
+const normalizeTodo = (todo: Todo): Todo => ({
+  ...todo,
+  completedAt: todo.completed ? (todo.completedAt ?? todo.updatedAt ?? todo.createdAt) : null,
+});
+
 interface TodosStore {
   todos: Todo[];
   addTodo: (todo: Todo) => void;
@@ -19,12 +24,12 @@ interface TodosStore {
 export const useTodosStore = create<TodosStore>((set, get) => ({
   todos: (() => {
     const saved = localStorage.getItem('quicknotes_todos');
-    return saved ? JSON.parse(saved) : [];
+    return saved ? (JSON.parse(saved) as Todo[]).map(normalizeTodo) : [];
   })(),
 
   addTodo: (todo) => {
     set((state) => {
-      const newTodos = [...state.todos, { ...todo, updatedAt: todo.updatedAt ?? todo.createdAt }];
+      const newTodos = [...state.todos, normalizeTodo({ ...todo, updatedAt: todo.updatedAt ?? todo.createdAt })];
       localStorage.setItem('quicknotes_todos', JSON.stringify(newTodos));
       return { todos: newTodos };
     });
@@ -50,9 +55,14 @@ export const useTodosStore = create<TodosStore>((set, get) => ({
 
   toggleTodo: (id) => {
     set((state) => {
+      const nextTimestamp = Date.now();
       const newTodos = state.todos.map((todo) =>
         todo.id === id
-          ? { ...todo, completed: !todo.completed, updatedAt: Date.now() }
+          ? {
+              ...todo,
+              completed: !todo.completed,
+              completedAt: !todo.completed ? nextTimestamp : null,
+            }
           : todo
       );
       localStorage.setItem('quicknotes_todos', JSON.stringify(newTodos));
@@ -102,7 +112,8 @@ export const useTodosStore = create<TodosStore>((set, get) => ({
   },
 
   loadTodos: (todos) => {
-    set({ todos });
-    localStorage.setItem('quicknotes_todos', JSON.stringify(todos));
+    const normalized = todos.map(normalizeTodo);
+    set({ todos: normalized });
+    localStorage.setItem('quicknotes_todos', JSON.stringify(normalized));
   },
 }));

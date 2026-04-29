@@ -71,6 +71,7 @@ const Sidebar: React.FC = () => {
       title: '',
       description: '',
       completed: false,
+      completedAt: null,
       folderId: currentTodoFolderId,
       tags: [],
       createdAt: Date.now(),

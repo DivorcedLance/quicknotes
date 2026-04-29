@@ -29,6 +29,7 @@ export interface Todo {
   title: string;
   description: string;
   completed: boolean;
+  completedAt: number | null;
   folderId: string | null;
   tags: string[];
   createdAt: number;

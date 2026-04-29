@@ -63,9 +63,6 @@ const TodosView: React.FC = () => {
     return sortItems(result, sortBy);
   }, [todos, currentTodoFolderId, getTodosByFolder, searchQuery, selectedTagFilters, sortBy]);
 
-  const pendingTodos = useMemo(() => scopedTodos.filter((todo) => !todo.completed), [scopedTodos]);
-  const completedTodos = useMemo(() => scopedTodos.filter((todo) => todo.completed), [scopedTodos]);
-
   const groupedTodos = useMemo(() => {
     const ordered = [...scopedTodos].sort((a, b) => (b.updatedAt || b.createdAt) - (a.updatedAt || a.createdAt));
     const grouped: Record<string, (typeof todos)[number][]> = {};
@@ -158,7 +155,11 @@ const TodosView: React.FC = () => {
           </div>
 
           <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
-            <span>{formatDateTime(todo.updatedAt || todo.createdAt)}</span>
+            <span>Creada: {formatDateTime(todo.createdAt)}</span>
+            <span>Modificada: {formatDateTime(todo.updatedAt || todo.createdAt)}</span>
+            <span>
+              Completada: {todo.completedAt ? formatDateTime(todo.completedAt) : 'Sin completar'}
+            </span>
             {todo.folderId && (
               <span className="rounded-full bg-gray-100 px-2 py-1 dark:bg-dark-tertiary">
                 Carpeta asignada
@@ -203,6 +204,7 @@ const TodosView: React.FC = () => {
                   title: '',
                   description: '',
                   completed: false,
+                  completedAt: null,
                   folderId: currentTodoFolderId,
                   tags: [],
                   createdAt: Date.now(),
@@ -278,8 +280,8 @@ const TodosView: React.FC = () => {
           </div>
 
           <div className="flex flex-wrap gap-2 text-xs text-gray-500 dark:text-gray-400">
-            <span className="rounded-full bg-gray-100 px-3 py-1 dark:bg-dark-primary/50">{pendingTodos.length} pendientes</span>
-            <span className="rounded-full bg-gray-100 px-3 py-1 dark:bg-dark-primary/50">{completedTodos.length} completadas</span>
+            <span className="rounded-full bg-gray-100 px-3 py-1 dark:bg-dark-primary/50">{scopedTodos.filter((todo) => !todo.completed).length} pendientes</span>
+            <span className="rounded-full bg-gray-100 px-3 py-1 dark:bg-dark-primary/50">{scopedTodos.filter((todo) => todo.completed).length} completadas</span>
             <span className="rounded-full bg-gray-100 px-3 py-1 dark:bg-dark-primary/50">{scopedTodos.length} visibles</span>
             {activeTagCount > 0 && (
               <span className="rounded-full bg-blue-100 px-3 py-1 text-blue-700 dark:bg-blue-950 dark:text-blue-200">
@@ -296,32 +298,19 @@ const TodosView: React.FC = () => {
         ) : (
           <div className="grid gap-6">
             {Object.entries(groupedTodos).map(([dateLabel, items]) => {
-              const pendingItems = items.filter((todo) => !todo.completed);
-              const completedItems = items.filter((todo) => todo.completed);
-
               return (
                 <section key={dateLabel} className="space-y-3">
                   <h3 className="flex items-center gap-2 text-lg font-semibold">
                     <FiCheckCircle className="text-blue-500" /> {dateLabel}
                   </h3>
 
-                  {pendingItems.length === 0 && completedItems.length === 0 ? (
+                  {items.length === 0 ? (
                     <p className="rounded-2xl border border-dashed border-gray-300 bg-white p-4 text-sm text-gray-500 shadow-sm dark:border-dark-tertiary dark:bg-dark-secondary dark:text-gray-400">
                       No hay tareas para este día.
                     </p>
                   ) : (
                     <div className="space-y-3">
-                      {pendingItems.length > 0 && (
-                        <div className="space-y-3">
-                          {pendingItems.map(renderTodoCard)}
-                        </div>
-                      )}
-
-                      {!showOnlyActiveTodos && completedItems.length > 0 && (
-                        <div className="space-y-3 opacity-90">
-                          {completedItems.map(renderTodoCard)}
-                        </div>
-                      )}
+                      {items.map(renderTodoCard)}
                     </div>
                   )}
                 </section>

@@ -20,6 +20,7 @@ const NoteEditor: React.FC<NoteEditorProps> = ({ noteId, onClose }) => {
   const editorRef = useRef<RichTextEditorHandle>(null);
   const titleInputRef = useRef<HTMLInputElement>(null);
   const isClosingRef = useRef(false);
+  const initialSnapshotRef = useRef<string>('');
   const [editorSearchQuery, setEditorSearchQuery] = useState('');
 
   const existingNote = noteId ? notes.find((n) => n.id === noteId) : null;
@@ -39,32 +40,56 @@ const NoteEditor: React.FC<NoteEditorProps> = ({ noteId, onClose }) => {
   const [selectedTags, setSelectedTags] = useState<string[]>(note.tags);
 
   useEffect(() => {
+    const snapshot = JSON.stringify({
+      title: note.title,
+      content: note.content,
+      folderId: note.folderId,
+      images: note.images,
+      tags: selectedTags,
+    });
+
+    if (!initialSnapshotRef.current) {
+      initialSnapshotRef.current = snapshot;
+    }
+  }, []);
+
+  const getCurrentSnapshot = (nextNote: Note, nextTags: string[]) =>
+    JSON.stringify({
+      title: nextNote.title,
+      content: nextNote.content,
+      folderId: nextNote.folderId,
+      images: nextNote.images,
+      tags: nextTags,
+    });
+
+  const persistNote = (nextNote: Note, nextTags: string[]) => {
+    const snapshot = getCurrentSnapshot(nextNote, nextTags);
+    if (snapshot === initialSnapshotRef.current) {
+      return;
+    }
+
+    const payload = {
+      ...nextNote,
+      tags: nextTags,
+      updatedAt: Date.now(),
+    };
+
+    if (noteId) {
+      updateNote(noteId, payload);
+    } else {
+      addNote(payload);
+    }
+
+    initialSnapshotRef.current = snapshot;
+  };
+
+  useEffect(() => {
     const timeout = window.setTimeout(() => {
       if (isClosingRef.current) {
         return;
       }
 
-      const hasMeaningfulContent =
-        note.title.trim().length > 0 ||
-        note.content.trim().length > 0 ||
-        note.images.length > 0 ||
-        selectedTags.length > 0;
-
-      if (!noteId && !hasMeaningfulContent) {
-        return;
-      }
-
-      const nextNote = {
-        ...note,
-        tags: selectedTags,
-        updatedAt: Date.now(),
-      };
-
-      if (noteId) {
-        updateNote(noteId, nextNote);
-      } else {
-        addNote(nextNote);
-      }
+      persistNote(note, selectedTags);
     }, 300);
 
     return () => window.clearTimeout(timeout);
@@ -88,7 +113,6 @@ const NoteEditor: React.FC<NoteEditorProps> = ({ noteId, onClose }) => {
       title: normalizedTitle,
       content: latestContent,
       tags: selectedTags,
-      updatedAt: Date.now(),
     };
 
     const hasMeaningfulContent =
@@ -108,17 +132,17 @@ const NoteEditor: React.FC<NoteEditorProps> = ({ noteId, onClose }) => {
         if (isEmptyNote) {
           deleteNote(noteId);
         } else {
-          updateNote(noteId, nextNote);
+          persistNote(nextNote, selectedTags);
         }
       } else if (hasMeaningfulContent) {
-        addNote(nextNote);
+        persistNote(nextNote, selectedTags);
       }
       onClose();
       return;
     }
 
     if (hasMeaningfulContent) {
-      addNote(nextNote);
+      persistNote(nextNote, selectedTags);
     }
 
     onClose();

@@ -20,6 +20,9 @@ const TodoEditor: React.FC<TodoEditorProps> = ({ todoId, onClose }) => {
   const { showInspectorPanel, currentTodoFolderId } = useAppStore();
   const folders = useTodoFoldersStore((state) => state.folders);
   const editorRef = useRef<RichTextEditorHandle>(null);
+  const titleInputRef = useRef<HTMLInputElement>(null);
+  const isClosingRef = useRef(false);
+  const initialSnapshotRef = useRef<string>('');
   const [editorSearchQuery, setEditorSearchQuery] = useState('');
 
   const existingTodo = todoId ? todos.find((t) => t.id === todoId) : null;
@@ -29,7 +32,8 @@ const TodoEditor: React.FC<TodoEditorProps> = ({ todoId, onClose }) => {
       title: '',
       description: '',
       completed: false,
-      folderId: currentTodoFolderId,
+        folderId: currentTodoFolderId,
+        completedAt: null,
       tags: [],
       createdAt: Date.now(),
       updatedAt: Date.now(),
@@ -39,22 +43,57 @@ const TodoEditor: React.FC<TodoEditorProps> = ({ todoId, onClose }) => {
   const [selectedTags, setSelectedTags] = useState<string[]>(todo.tags);
 
   useEffect(() => {
+    const snapshot = JSON.stringify({
+      title: todo.title,
+      description: todo.description,
+      folderId: todo.folderId,
+      tags: selectedTags,
+      completed: todo.completed,
+      completedAt: todo.completedAt ?? null,
+    });
+
+    if (!initialSnapshotRef.current) {
+      initialSnapshotRef.current = snapshot;
+    }
+  }, []);
+
+  const getCurrentSnapshot = (nextTodo: Todo, nextTags: string[]) =>
+    JSON.stringify({
+      title: nextTodo.title,
+      description: nextTodo.description,
+      folderId: nextTodo.folderId,
+      tags: nextTags,
+      completed: nextTodo.completed,
+      completedAt: nextTodo.completedAt ?? null,
+    });
+
+  const persistTodo = (nextTodo: Todo, nextTags: string[]) => {
+    const snapshot = getCurrentSnapshot(nextTodo, nextTags);
+    if (snapshot === initialSnapshotRef.current) {
+      return;
+    }
+
+    const payload = {
+      ...nextTodo,
+      tags: nextTags,
+      updatedAt: Date.now(),
+    };
+
+    if (todoId) {
+      updateTodo(todoId, payload);
+    } else {
+      addTodo(payload);
+        initialSnapshotRef.current = snapshot;
+    }
+  };
+
+  useEffect(() => {
     const timeout = window.setTimeout(() => {
-      if (!todo.title.trim()) {
+      if (isClosingRef.current) {
         return;
       }
 
-      const nextTodo = {
-        ...todo,
-        tags: selectedTags,
-        updatedAt: Date.now(),
-      };
-
-      if (todoId) {
-        updateTodo(todoId, nextTodo);
-      } else {
-        addTodo(nextTodo);
-      }
+      persistTodo(todo, selectedTags);
     }, 300);
 
     return () => window.clearTimeout(timeout);
@@ -67,13 +106,34 @@ const TodoEditor: React.FC<TodoEditorProps> = ({ todoId, onClose }) => {
   };
 
   const handleBack = () => {
-    const isEmptyTodo = todo.title.trim().length === 0 && todo.description.trim().length === 0;
+    isClosingRef.current = true;
+
+    const latestTitle = titleInputRef.current?.value ?? todo.title;
+    const latestDescription = editorRef.current?.getHtml() ?? todo.description;
+    const normalizedTitle = latestTitle.trim().length === 0 ? '' : latestTitle;
+
+    const nextTodo = {
+      ...todo,
+      title: normalizedTitle,
+      description: latestDescription,
+      tags: selectedTags,
+    };
+
+    const isEmptyTodo = nextTodo.title.trim().length === 0 && nextTodo.description.trim().length === 0;
 
     if (todoId && isEmptyTodo) {
       const todoExists = todos.some((item) => item.id === todoId);
       if (todoExists) {
         deleteTodo(todoId);
+        onClose();
+        return;
       }
+    }
+
+    if (todoId) {
+      persistTodo(nextTodo, selectedTags);
+    } else if (!isEmptyTodo) {
+      persistTodo(nextTodo, selectedTags);
     }
 
     onClose();
@@ -124,6 +184,7 @@ const TodoEditor: React.FC<TodoEditorProps> = ({ todoId, onClose }) => {
             <label className="space-y-2">
               <span className="block text-sm font-medium text-gray-600 dark:text-gray-300">Título*</span>
               <input
+                ref={titleInputRef}
                 type="text"
                 placeholder="¿Qué necesitas hacer?"
                 value={todo.title}
