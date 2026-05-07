@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import type { DateTimeFormat } from '../utils/helpers';
 
 interface AppStore {
   currentTab: 'notes' | 'todos' | 'tags' | 'settings';
@@ -24,14 +25,18 @@ interface AppStore {
   toggleSidebarMode: () => void;
   showInspectorPanel: boolean;
   setShowInspectorPanel: (show: boolean) => void;
-  showOnlyActiveTodos: boolean;
-  setShowOnlyActiveTodos: (show: boolean) => void;
   selectedTagFilters: string[];
   setSelectedTagFilters: (tags: string[]) => void;
   sortBy: 'date' | 'name' | 'modified';
   setSortBy: (sortBy: 'date' | 'name' | 'modified') => void;
   groupByDate: boolean;
   setGroupByDate: (group: boolean) => void;
+  sortTodosByDate: 'createdAt' | 'updatedAt' | 'completedAt';
+  setSortTodosByDate: (sortBy: 'createdAt' | 'updatedAt' | 'completedAt') => void;
+  todoFilterStatus: 'all' | 'completed' | 'pending';
+  setTodoFilterStatus: (status: 'all' | 'completed' | 'pending') => void;
+  dateTimeFormat: DateTimeFormat;
+  setDateTimeFormat: (format: DateTimeFormat) => void;
 }
 
 export const useAppStore = create<AppStore>((set) => ({
@@ -100,9 +105,6 @@ export const useAppStore = create<AppStore>((set) => ({
     set({ showInspectorPanel: show });
   },
 
-  showOnlyActiveTodos: true,
-  setShowOnlyActiveTodos: (show) => set({ showOnlyActiveTodos: show }),
-
   selectedTagFilters: [],
   setSelectedTagFilters: (tags) => set({ selectedTagFilters: tags }),
 
@@ -111,4 +113,37 @@ export const useAppStore = create<AppStore>((set) => ({
 
   groupByDate: true,
   setGroupByDate: (group) => set({ groupByDate: group }),
+
+  sortTodosByDate:
+    typeof window !== 'undefined' && (window.localStorage.getItem('quicknotes.sortTodosByDate') as any)
+      ? (window.localStorage.getItem('quicknotes.sortTodosByDate') as any)
+      : 'updatedAt',
+  setSortTodosByDate: (sortBy) => {
+    if (typeof window !== 'undefined') {
+      window.localStorage.setItem('quicknotes.sortTodosByDate', sortBy);
+    }
+    set({ sortTodosByDate: sortBy });
+  },
+
+  todoFilterStatus:
+    typeof window !== 'undefined' && (window.localStorage.getItem('quicknotes.todoFilterStatus') as any)
+      ? (window.localStorage.getItem('quicknotes.todoFilterStatus') as any)
+      : 'all',
+  setTodoFilterStatus: (status) => {
+    if (typeof window !== 'undefined') {
+      window.localStorage.setItem('quicknotes.todoFilterStatus', status);
+    }
+    set({ todoFilterStatus: status });
+  },
+
+  dateTimeFormat:
+    typeof window !== 'undefined' && (window.localStorage.getItem('quicknotes.dateTimeFormat') as DateTimeFormat | null)
+      ? (window.localStorage.getItem('quicknotes.dateTimeFormat') as DateTimeFormat)
+      : 'completo',
+  setDateTimeFormat: (format) => {
+    if (typeof window !== 'undefined') {
+      window.localStorage.setItem('quicknotes.dateTimeFormat', format);
+    }
+    set({ dateTimeFormat: format });
+  },
 }));

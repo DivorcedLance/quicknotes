@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import type { Todo } from '../types';
+import { useTodoFoldersStore } from './todoFoldersStore';
 
 const normalizeTodo = (todo: Todo): Todo => ({
   ...todo,
@@ -85,7 +86,20 @@ export const useTodosStore = create<TodosStore>((set, get) => ({
   },
 
   getTodosByFolder: (folderId) => {
-    return get().todos.filter((todo) => todo.folderId === folderId);
+    if (folderId === null) return get().todos;
+    
+    const folders = useTodoFoldersStore.getState().folders;
+    const getAllDescendantFolderIds = (parentId: string): string[] => {
+      const descendants: string[] = [parentId];
+      const children = folders.filter((item) => item.parentId === parentId);
+      children.forEach((child) => {
+        descendants.push(...getAllDescendantFolderIds(child.id));
+      });
+      return descendants;
+    };
+    
+    const descendantFolderIds = getAllDescendantFolderIds(folderId);
+    return get().todos.filter((todo) => todo.folderId !== null && descendantFolderIds.includes(todo.folderId));
   },
 
   getActiveTodos: () => {

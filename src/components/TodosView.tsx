@@ -1,12 +1,12 @@
 import React, { useMemo } from 'react';
-import { FiCheckCircle, FiEdit2, FiFilter, FiPlus, FiSearch, FiTag, FiTrash2, FiX } from 'react-icons/fi';
+import { FiCheckCircle, FiEdit2, FiFilter, FiPlus, FiSearch, FiTag, FiTrash2, FiX, FiCalendar, FiCheck, FiClock } from 'react-icons/fi';
 import { useTodosStore } from '../stores/todosStore';
 import { useAppStore } from '../stores/appStore';
 import { useTagsStore } from '../stores/tagsStore';
 import { useTodoFoldersStore } from '../stores/todoFoldersStore';
 import {
   clampTextPreview,
-  formatDateTime,
+  formatDateTimeByFormat,
   htmlToPreviewText,
   getDateLabel,
   getSearchSnippet,
@@ -26,13 +26,16 @@ const TodosView: React.FC = () => {
   const {
     searchQuery,
     setSearchQuery,
-    showOnlyActiveTodos,
-    setShowOnlyActiveTodos,
     selectedTagFilters,
     setSelectedTagFilters,
     sortBy,
     currentTodoFolderId,
     setCurrentTodoId,
+    sortTodosByDate,
+    setSortTodosByDate,
+    todoFilterStatus,
+    setTodoFilterStatus,
+    dateTimeFormat,
   } = useAppStore();
   const { tags } = useTagsStore();
   const getFolderPath = useTodoFoldersStore((state) => state.getFolderPath);
@@ -60,15 +63,35 @@ const TodosView: React.FC = () => {
       result = result.filter((todo) => selectedTagFilters.some((tagId) => todo.tags.includes(tagId)));
     }
 
+    // Apply completion filter
+    if (todoFilterStatus === 'completed') {
+      result = result.filter((todo) => todo.completed);
+    } else if (todoFilterStatus === 'pending') {
+      result = result.filter((todo) => !todo.completed);
+    }
+
     return sortItems(result, sortBy);
-  }, [todos, currentTodoFolderId, getTodosByFolder, searchQuery, selectedTagFilters, sortBy]);
+  }, [todos, currentTodoFolderId, getTodosByFolder, searchQuery, selectedTagFilters, sortBy, todoFilterStatus]);
 
   const groupedTodos = useMemo(() => {
-    const ordered = [...scopedTodos].sort((a, b) => (b.updatedAt || b.createdAt) - (a.updatedAt || a.createdAt));
+    const ordered = [...scopedTodos].sort((a, b) => {
+      const getDateForSort = (todo: typeof todos[number]) => {
+        if (sortTodosByDate === 'createdAt') return todo.createdAt;
+        if (sortTodosByDate === 'completedAt') return todo.completedAt || todo.updatedAt || todo.createdAt;
+        return todo.updatedAt || todo.createdAt;
+      };
+      return getDateForSort(b) - getDateForSort(a);
+    });
     const grouped: Record<string, (typeof todos)[number][]> = {};
 
     ordered.forEach((todo) => {
-      const label = getDateLabel(todo.updatedAt || todo.createdAt);
+      const dateToUse =
+        sortTodosByDate === 'createdAt'
+          ? todo.createdAt
+          : sortTodosByDate === 'completedAt'
+            ? todo.completedAt || todo.updatedAt || todo.createdAt
+            : todo.updatedAt || todo.createdAt;
+      const label = getDateLabel(dateToUse);
       if (!grouped[label]) {
         grouped[label] = [];
       }
@@ -76,9 +99,7 @@ const TodosView: React.FC = () => {
     });
 
     return grouped;
-  }, [scopedTodos, todos]);
-
-  const activeTagCount = selectedTagFilters.length;
+  }, [scopedTodos, todos, sortTodosByDate]);
 
   const toggleTagFilter = (tagId: string) => {
     setSelectedTagFilters(
@@ -154,17 +175,27 @@ const TodosView: React.FC = () => {
             </div>
           </div>
 
-          <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
-            <span>Creada: {formatDateTime(todo.createdAt)}</span>
-            <span>Modificada: {formatDateTime(todo.updatedAt || todo.createdAt)}</span>
-            <span>
-              Completada: {todo.completedAt ? formatDateTime(todo.completedAt) : 'Sin completar'}
-            </span>
-            {todo.folderId && (
-              <span className="rounded-full bg-gray-100 px-2 py-1 dark:bg-dark-tertiary">
-                Carpeta asignada
-              </span>
-            )}
+          <div className="mt-3 flex flex-wrap items-center gap-3 text-xs text-gray-500 dark:text-gray-400">
+            <div className="flex items-center gap-1" title={`Creada: ${formatDateTimeByFormat(todo.createdAt, dateTimeFormat)}`}>
+              <FiCalendar size={14} />
+              <span>{formatDateTimeByFormat(todo.createdAt, dateTimeFormat)}</span>
+            </div>
+            <div className="flex items-center gap-1" title={`Modificada: ${formatDateTimeByFormat(todo.updatedAt || todo.createdAt, dateTimeFormat)}`}>
+              <FiClock size={14} />
+              <span>{formatDateTimeByFormat(todo.updatedAt || todo.createdAt, dateTimeFormat)}</span>
+            </div>
+            <div className="flex items-center gap-1" title={todo.completedAt ? `Completada: ${formatDateTimeByFormat(todo.completedAt, dateTimeFormat)}` : 'Sin completar'}>
+              <FiCheck size={14} />
+              <span>{todo.completedAt ? formatDateTimeByFormat(todo.completedAt, dateTimeFormat) : 'Sin completar'}</span>
+            </div>
+            {todo.folderId && (() => {
+              const folderPath = getFolderPath(todo.folderId);
+              return folderPath.length > 0 ? (
+                <span className="rounded-full bg-gray-100 px-2 py-1 dark:bg-dark-tertiary">
+                  {folderPath.map((item) => item.name).join(' / ')}
+                </span>
+              ) : null;
+            })()}
           </div>
 
           {todo.tags.length > 0 && (
@@ -186,41 +217,73 @@ const TodosView: React.FC = () => {
         <div className="flex flex-col gap-4 rounded-3xl border border-gray-200 bg-white p-5 shadow-sm dark:border-dark-tertiary dark:bg-dark-secondary">
           <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
             <div>
-              <h2 className="text-2xl font-semibold">Tareas</h2>
-              <p className="text-sm text-gray-500 dark:text-gray-400">
-                Busca, filtra por etiquetas y decide si quieres ocultar o mostrar las completadas.
-              </p>
-              {currentFolderPath.length > 0 && (
-                <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                  Carpeta actual: {currentFolderPath.map((item) => item.name).join(' / ')}
-                </p>
-              )}
+              <h2 className="text-2xl font-semibold">
+                {currentFolderPath.length > 0 ? currentFolderPath.map((item) => item.name).join(' / ') : 'Tareas'}
+              </h2>
             </div>
 
-            <button
-              onClick={() => {
-                const newTodo = {
-                  id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-                  title: '',
-                  description: '',
-                  completed: false,
-                  completedAt: null,
-                  folderId: currentTodoFolderId,
-                  tags: [],
-                  createdAt: Date.now(),
-                  updatedAt: Date.now(),
-                };
-                addTodo(newTodo);
-                setCurrentTodoId(newTodo.id);
-              }}
-              className="inline-flex items-center justify-center gap-2 rounded-xl bg-blue-500 px-4 py-3 text-sm font-medium text-white transition-colors hover:bg-blue-600"
-            >
-              <FiPlus /> Nueva Tarea
-            </button>
+            <div className="flex flex-wrap items-center gap-3">
+              <div className="inline-flex gap-1 rounded-2xl border border-gray-200 bg-gray-50 p-1 dark:border-dark-tertiary dark:bg-dark-primary/40">
+                <button
+                  onClick={() => setTodoFilterStatus('all')}
+                  className={`rounded-xl px-3 py-2 text-sm font-medium transition-colors ${
+                    todoFilterStatus === 'all'
+                      ? 'bg-blue-500 text-white'
+                      : 'text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-dark-tertiary'
+                  }`}
+                  title="Mostrar todas las tareas"
+                >
+                  Todas
+                </button>
+                <button
+                  onClick={() => setTodoFilterStatus('pending')}
+                  className={`rounded-xl px-3 py-2 text-sm font-medium transition-colors ${
+                    todoFilterStatus === 'pending'
+                      ? 'bg-blue-500 text-white'
+                      : 'text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-dark-tertiary'
+                  }`}
+                  title="Mostrar solo tareas pendientes"
+                >
+                  Pendientes
+                </button>
+                <button
+                  onClick={() => setTodoFilterStatus('completed')}
+                  className={`rounded-xl px-3 py-2 text-sm font-medium transition-colors ${
+                    todoFilterStatus === 'completed'
+                      ? 'bg-blue-500 text-white'
+                      : 'text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-dark-tertiary'
+                  }`}
+                  title="Mostrar solo tareas completadas"
+                >
+                  Completadas
+                </button>
+              </div>
+
+              <button
+                onClick={() => {
+                  const newTodo = {
+                    id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+                    title: '',
+                    description: '',
+                    completed: false,
+                    completedAt: null,
+                    folderId: currentTodoFolderId,
+                    tags: [],
+                    createdAt: Date.now(),
+                    updatedAt: Date.now(),
+                  };
+                  addTodo(newTodo);
+                  setCurrentTodoId(newTodo.id);
+                }}
+                className="inline-flex items-center justify-center gap-2 rounded-xl bg-blue-500 px-4 py-3 text-sm font-medium text-white transition-colors hover:bg-blue-600"
+              >
+                <FiPlus /> Nueva Tarea
+              </button>
+            </div>
           </div>
 
-          <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_auto]">
-            <label className="flex items-center gap-2 rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 dark:border-dark-tertiary dark:bg-dark-primary/40">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:gap-3">
+            <label className="flex flex-1 items-center gap-2 rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 dark:border-dark-tertiary dark:bg-dark-primary/40">
               <FiSearch className="shrink-0 text-gray-400" />
               <input
                 type="text"
@@ -229,22 +292,65 @@ const TodosView: React.FC = () => {
                 placeholder="Buscar tareas por título o descripción"
                 className="w-full border-0 bg-transparent p-0 text-sm outline-none placeholder:text-gray-400"
               />
+              {searchQuery ? (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setSearchQuery('');
+                  }}
+                  className="ml-2 rounded-full p-1 text-gray-500 hover:bg-gray-100"
+                  title="Limpiar búsqueda"
+                >
+                  <FiX />
+                </button>
+              ) : null}
             </label>
 
-            <label className="inline-flex items-center gap-2 rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm dark:border-dark-tertiary dark:bg-dark-primary/40">
-              <input
-                type="checkbox"
-                checked={showOnlyActiveTodos}
-                onChange={(event) => setShowOnlyActiveTodos(event.target.checked)}
-                className="rounded"
-              />
-              Ocultar completadas
-            </label>
+            <div className="inline-flex gap-1 rounded-2xl border border-gray-200 bg-gray-50 p-1 dark:border-dark-tertiary dark:bg-dark-primary/40">
+              <button
+                onClick={() => setSortTodosByDate('createdAt')}
+                className={`rounded-xl px-3 py-2 text-sm font-medium transition-colors ${
+                  sortTodosByDate === 'createdAt'
+                    ? 'bg-purple-500 text-white'
+                    : 'text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-dark-tertiary'
+                }`}
+                title="Agrupar por fecha de creación"
+              >
+                <FiCalendar className="inline mr-1" size={14} />
+                Creadas
+              </button>
+              <button
+                onClick={() => setSortTodosByDate('updatedAt')}
+                className={`rounded-xl px-3 py-2 text-sm font-medium transition-colors ${
+                  sortTodosByDate === 'updatedAt'
+                    ? 'bg-purple-500 text-white'
+                    : 'text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-dark-tertiary'
+                }`}
+                title="Agrupar por fecha de modificación"
+              >
+                <FiClock className="inline mr-1" size={14} />
+                Modificadas
+              </button>
+              <button
+                onClick={() => setSortTodosByDate('completedAt')}
+                className={`rounded-xl px-3 py-2 text-sm font-medium transition-colors ${
+                  sortTodosByDate === 'completedAt'
+                    ? 'bg-purple-500 text-white'
+                    : 'text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-dark-tertiary'
+                }`}
+                title="Agrupar por fecha de completado"
+              >
+                <FiCheck className="inline mr-1" size={14} />
+                Completadas
+              </button>
+            </div>
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
-            <span className="inline-flex items-center gap-2 rounded-full bg-gray-100 px-3 py-1 text-xs font-medium text-gray-600 dark:bg-dark-primary/50 dark:text-gray-300">
-              <FiFilter /> Filtros
+            <span className="text-xs font-medium text-gray-600 dark:text-gray-400">
+              <FiFilter className="inline mr-1" size={14} />
+              Filtros
             </span>
             {tags.length === 0 ? (
               <span className="text-xs text-gray-500 dark:text-gray-400">No hay etiquetas disponibles.</span>
@@ -276,17 +382,6 @@ const TodosView: React.FC = () => {
                   </button>
                 ) : null}
               </>
-            )}
-          </div>
-
-          <div className="flex flex-wrap gap-2 text-xs text-gray-500 dark:text-gray-400">
-            <span className="rounded-full bg-gray-100 px-3 py-1 dark:bg-dark-primary/50">{scopedTodos.filter((todo) => !todo.completed).length} pendientes</span>
-            <span className="rounded-full bg-gray-100 px-3 py-1 dark:bg-dark-primary/50">{scopedTodos.filter((todo) => todo.completed).length} completadas</span>
-            <span className="rounded-full bg-gray-100 px-3 py-1 dark:bg-dark-primary/50">{scopedTodos.length} visibles</span>
-            {activeTagCount > 0 && (
-              <span className="rounded-full bg-blue-100 px-3 py-1 text-blue-700 dark:bg-blue-950 dark:text-blue-200">
-                {activeTagCount} filtro{activeTagCount === 1 ? '' : 's'} de etiqueta
-              </span>
             )}
           </div>
         </div>

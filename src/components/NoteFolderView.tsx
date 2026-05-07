@@ -24,9 +24,23 @@ const NoteFolderView: React.FC = () => {
     () => folders.filter((item) => item.parentId === folderViewId),
     [folders, folderViewId]
   );
+
+  const getAllDescendantFolderIds = (parentId: string): string[] => {
+    const descendants: string[] = [parentId];
+    const children = folders.filter((item) => item.parentId === parentId);
+    children.forEach((child) => {
+      descendants.push(...getAllDescendantFolderIds(child.id));
+    });
+    return descendants;
+  };
+
   const folderNotes = useMemo(
-    () => notes.filter((item) => item.folderId === folderViewId),
-    [notes, folderViewId]
+    () => {
+      if (!folderViewId) return [];
+      const descendantFolderIds = getAllDescendantFolderIds(folderViewId);
+      return notes.filter((item) => item.folderId !== null && descendantFolderIds.includes(item.folderId));
+    },
+    [notes, folderViewId, folders]
   );
 
   const [folderName, setFolderName] = useState(folder?.name ?? '');

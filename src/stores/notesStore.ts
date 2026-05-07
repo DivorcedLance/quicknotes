@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import type { Note } from '../types';
+import { useFoldersStore } from './foldersStore';
 
 interface NotesStore {
   notes: Note[];
@@ -56,7 +57,20 @@ export const useNotesStore = create<NotesStore>((set, get) => ({
   },
 
   getNotesByFolder: (folderId) => {
-    return get().notes.filter((note) => note.folderId === folderId);
+    if (folderId === null) return get().notes;
+    
+    const folders = useFoldersStore.getState().folders;
+    const getAllDescendantFolderIds = (parentId: string): string[] => {
+      const descendants: string[] = [parentId];
+      const children = folders.filter((item) => item.parentId === parentId);
+      children.forEach((child) => {
+        descendants.push(...getAllDescendantFolderIds(child.id));
+      });
+      return descendants;
+    };
+    
+    const descendantFolderIds = getAllDescendantFolderIds(folderId);
+    return get().notes.filter((note) => note.folderId !== null && descendantFolderIds.includes(note.folderId));
   },
 
   searchNotes: (query) => {

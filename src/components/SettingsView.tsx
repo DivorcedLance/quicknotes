@@ -6,6 +6,7 @@ import {
   FiSmartphone,
 } from 'react-icons/fi';
 import { useSettingsStore } from '../stores/settingsStore';
+import { useAppStore } from '../stores/appStore';
 import { useDatabaseStore } from '../stores/databaseStore';
 import { downloadJson, readFileAsText } from '../utils/helpers';
 
@@ -19,6 +20,7 @@ type BeforeInstallPromptEvent = Event & {
 
 const SettingsView: React.FC = () => {
   const { settings, updateSettings } = useSettingsStore();
+  const { dateTimeFormat, setDateTimeFormat } = useAppStore();
   const { exportDatabase, importDatabase, resetDatabase } = useDatabaseStore();
   const [activeTab, setActiveTab] = useState<'general' | 'database'>('general');
   const [showReset, setShowReset] = useState(false);
@@ -184,6 +186,23 @@ const SettingsView: React.FC = () => {
               <span className="text-sm text-gray-500 dark:text-gray-400">
                 {settings.fontSize}px
               </span>
+            </label>
+          </div>
+
+          <div>
+            <label className="block">
+              <span className="block text-sm font-medium mb-2">Formato de fechas</span>
+              <select
+                value={dateTimeFormat}
+                onChange={(e) => setDateTimeFormat(e.target.value as any)}
+                className="input-field"
+              >
+                <option value="completo">Formato completo (7 de mayo de 2026 14:30)</option>
+                <option value="fecha">Solo fecha (7 de mayo de 2026)</option>
+                <option value="hora">Solo hora (14:30)</option>
+                <option value="compacto">Compacto (07/05/2026 14:30)</option>
+                <option value="relativo">Relativo (Hace 2 horas)</option>
+              </select>
             </label>
           </div>
 

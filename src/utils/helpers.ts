@@ -23,6 +23,53 @@ export const formatDateTime = (timestamp: number): string => {
   return `${formatDate(timestamp)} ${formatTime(timestamp)}`;
 };
 
+export const formatDateCompact = (timestamp: number): string => {
+  const date = new Date(timestamp);
+  return date.toLocaleDateString('es-ES', {
+    year: '2-digit',
+    month: '2-digit',
+    day: '2-digit',
+  });
+};
+
+export const formatDateTimeCompact = (timestamp: number): string => {
+  return `${formatDateCompact(timestamp)} ${formatTime(timestamp)}`;
+};
+
+export const formatDateRelative = (timestamp: number): string => {
+  const now = Date.now();
+  const diff = now - timestamp;
+  const seconds = Math.floor(diff / 1000);
+  const minutes = Math.floor(seconds / 60);
+  const hours = Math.floor(minutes / 60);
+  const days = Math.floor(hours / 24);
+
+  if (seconds < 60) return 'Hace un momento';
+  if (minutes < 60) return `Hace ${minutes}m`;
+  if (hours < 24) return `Hace ${hours}h`;
+  if (days < 7) return `Hace ${days}d`;
+  
+  return formatDate(timestamp);
+};
+
+export type DateTimeFormat = 'completo' | 'fecha' | 'hora' | 'compacto' | 'relativo';
+
+export const formatDateTimeByFormat = (timestamp: number, format: DateTimeFormat): string => {
+  switch (format) {
+    case 'fecha':
+      return formatDate(timestamp);
+    case 'hora':
+      return formatTime(timestamp);
+    case 'compacto':
+      return formatDateTimeCompact(timestamp);
+    case 'relativo':
+      return formatDateRelative(timestamp);
+    case 'completo':
+    default:
+      return formatDateTime(timestamp);
+  }
+};
+
 export const isToday = (timestamp: number): boolean => {
   const date = new Date(timestamp);
   const today = new Date();

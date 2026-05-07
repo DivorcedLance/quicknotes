@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { FiCheckSquare, FiChevronDown, FiChevronRight, FiEye, FiFolder, FiTrash2 } from 'react-icons/fi';
+import { FiCheckSquare, FiChevronDown, FiChevronRight, FiEdit2, FiFolder, FiTrash2 } from 'react-icons/fi';
 import { useAppStore } from '../stores/appStore';
 import { useTodoFoldersStore } from '../stores/todoFoldersStore';
 import { useTodosStore } from '../stores/todosStore';
@@ -12,7 +12,6 @@ interface TodoFolderTreeProps {
 
 const TodoFolderTree: React.FC<TodoFolderTreeProps> = ({ parentId, depth = 0, searchQuery = '' }) => {
   const foldersState = useTodoFoldersStore((state) => state.folders);
-  const deleteFolder = useTodoFoldersStore((state) => state.deleteFolder);
   const {
     currentTodoFolderId,
     currentTodoId,
@@ -26,6 +25,7 @@ const TodoFolderTree: React.FC<TodoFolderTreeProps> = ({ parentId, depth = 0, se
   const deleteTodo = useTodosStore((state) => state.deleteTodo);
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const [dragOverFolderId, setDragOverFolderId] = useState<string | null>(null);
+  const [deleteConfirmTodoId, setDeleteConfirmTodoId] = useState<string | null>(null);
 
   const folders = useMemo(
     () =>
@@ -168,13 +168,43 @@ const TodoFolderTree: React.FC<TodoFolderTreeProps> = ({ parentId, depth = 0, se
         </p>
       </div>
       <FiTrash2
-        className="mt-1 shrink-0 text-red-500 opacity-0 transition-opacity group-hover:opacity-100"
+        className="mt-1 shrink-0 text-red-500 opacity-0 transition-opacity group-hover:opacity-100 cursor-pointer"
         size={14}
         onClick={(event) => {
           event.stopPropagation();
-          deleteTodo(todo.id);
+          setDeleteConfirmTodoId(todo.id);
         }}
       />
+      
+      {deleteConfirmTodoId === todo.id && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+          <div className="rounded-lg bg-white p-6 shadow-lg dark:bg-dark-secondary">
+            <p className="mb-4 text-sm font-medium text-gray-900 dark:text-gray-100">
+              ¿Estás seguro de que quieres eliminar esta tarea?
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => {
+                  deleteTodo(todo.id);
+                  setDeleteConfirmTodoId(null);
+                  if (currentTodoId === todo.id) {
+                    setCurrentTodoId(null);
+                  }
+                }}
+                className="rounded-lg bg-red-500 px-4 py-2 text-sm font-medium text-white hover:bg-red-600 transition-colors"
+              >
+                Eliminar
+              </button>
+              <button
+                onClick={() => setDeleteConfirmTodoId(null)}
+                className="rounded-lg bg-gray-300 px-4 py-2 text-sm font-medium text-gray-900 hover:bg-gray-400 transition-colors dark:bg-dark-tertiary dark:text-gray-100"
+              >
+                Cancelar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </button>
   );
 
@@ -248,18 +278,9 @@ const TodoFolderTree: React.FC<TodoFolderTreeProps> = ({ parentId, depth = 0, se
                   setCurrentTodoFolderId(folder.id);
                 }}
                 className="rounded p-1 text-gray-500 opacity-0 transition-opacity group-hover:opacity-100 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-dark-tertiary"
-                title="Ver carpeta"
+                title="Editar carpeta"
               >
-                <FiEye size={14} />
-              </button>
-              <button
-                onClick={(event) => {
-                  event.stopPropagation();
-                  deleteFolder(folder.id);
-                }}
-                className="rounded p-1 text-red-500 opacity-0 transition-opacity group-hover:opacity-100 hover:bg-red-100 dark:hover:bg-red-900"
-              >
-                <FiTrash2 size={14} />
+                <FiEdit2 size={14} />
               </button>
             </div>
 

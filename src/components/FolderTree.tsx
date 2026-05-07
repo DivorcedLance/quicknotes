@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { FiChevronDown, FiChevronRight, FiEye, FiFileText, FiFolder, FiTrash2 } from 'react-icons/fi';
+import { FiChevronDown, FiChevronRight, FiEdit2, FiFileText, FiFolder, FiTrash2 } from 'react-icons/fi';
 import { useAppStore } from '../stores/appStore';
 import { useFoldersStore } from '../stores/foldersStore';
 import { useNotesStore } from '../stores/notesStore';
@@ -12,7 +12,6 @@ interface FolderTreeProps {
 
 const FolderTree: React.FC<FolderTreeProps> = ({ parentId, depth = 0, searchQuery = '' }) => {
   const foldersState = useFoldersStore((state) => state.folders);
-  const deleteFolder = useFoldersStore((state) => state.deleteFolder);
   const {
     currentNotesFolderId,
     currentNoteId,
@@ -27,6 +26,7 @@ const FolderTree: React.FC<FolderTreeProps> = ({ parentId, depth = 0, searchQuer
   const deleteNote = useNotesStore((state) => state.deleteNote);
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const [dragOverFolderId, setDragOverFolderId] = useState<string | null>(null);
+  const [deleteConfirmNoteId, setDeleteConfirmNoteId] = useState<string | null>(null);
 
   const folders = useMemo(
     () =>
@@ -169,13 +169,43 @@ const FolderTree: React.FC<FolderTreeProps> = ({ parentId, depth = 0, searchQuer
         </p>
       </div>
       <FiTrash2
-        className="mt-1 shrink-0 text-red-500 opacity-0 transition-opacity group-hover:opacity-100"
+        className="mt-1 shrink-0 text-red-500 opacity-0 transition-opacity group-hover:opacity-100 cursor-pointer"
         size={14}
         onClick={(event) => {
           event.stopPropagation();
-          deleteNote(note.id);
+          setDeleteConfirmNoteId(note.id);
         }}
       />
+      
+      {deleteConfirmNoteId === note.id && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+          <div className="rounded-lg bg-white p-6 shadow-lg dark:bg-dark-secondary">
+            <p className="mb-4 text-sm font-medium text-gray-900 dark:text-gray-100">
+              ¿Estás seguro de que quieres eliminar esta nota?
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => {
+                  deleteNote(note.id);
+                  setDeleteConfirmNoteId(null);
+                  if (currentNoteId === note.id) {
+                    setCurrentNoteId(null);
+                  }
+                }}
+                className="rounded-lg bg-red-500 px-4 py-2 text-sm font-medium text-white hover:bg-red-600 transition-colors"
+              >
+                Eliminar
+              </button>
+              <button
+                onClick={() => setDeleteConfirmNoteId(null)}
+                className="rounded-lg bg-gray-300 px-4 py-2 text-sm font-medium text-gray-900 hover:bg-gray-400 transition-colors dark:bg-dark-tertiary dark:text-gray-100"
+              >
+                Cancelar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </button>
   );
 
@@ -250,18 +280,9 @@ const FolderTree: React.FC<FolderTreeProps> = ({ parentId, depth = 0, searchQuer
                   setCurrentNotesFolderId(folder.id);
                 }}
                 className="rounded p-1 text-gray-500 opacity-0 transition-opacity group-hover:opacity-100 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-dark-tertiary"
-                title="Ver carpeta"
+                title="Editar carpeta"
               >
-                <FiEye size={14} />
-              </button>
-              <button
-                onClick={(event) => {
-                  event.stopPropagation();
-                  deleteFolder(folder.id);
-                }}
-                className="rounded p-1 text-red-500 opacity-0 transition-opacity group-hover:opacity-100 hover:bg-red-100 dark:hover:bg-red-900"
-              >
-                <FiTrash2 size={14} />
+                <FiEdit2 size={14} />
               </button>
             </div>
 
