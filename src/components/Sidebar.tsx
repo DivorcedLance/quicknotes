@@ -22,6 +22,8 @@ const Sidebar: React.FC = () => {
     setCurrentTodoId,
     sidebarMode,
     toggleSidebarMode,
+    isMobileSidebarOpen,
+    setIsMobileSidebarOpen,
   } = useAppStore();
   const { addFolder } = useFoldersStore();
   const { addFolder: addTodoFolder } = useTodoFoldersStore();
@@ -111,18 +113,32 @@ const Sidebar: React.FC = () => {
 
   return (
     <aside
-      className={`flex shrink-0 flex-col overflow-y-auto border-r border-gray-200 bg-light-secondary transition-all duration-200 dark:border-dark-tertiary dark:bg-dark-secondary ${
-        sidebarMode === 'compact' ? 'w-20' : 'w-72'
-      }`}
+      className={`bg-light-secondary dark:bg-dark-secondary transition-transform duration-200 border-r border-gray-200 dark:border-dark-tertiary
+        ${sidebarMode === 'compact' && !isMobileSidebarOpen ? 'w-20' : 'w-72'}
+        flex-col overflow-y-auto shrink-0
+        fixed inset-y-0 left-0 z-40 transform ${isMobileSidebarOpen ? 'translate-x-0' : '-translate-x-full'} sm:translate-x-0 sm:relative sm:flex
+        `}
+      role="dialog"
+        aria-hidden={!isMobileSidebarOpen && !useAppStore.getState().showMainSidebar}
     >
       <div className="border-b border-gray-200 p-3 dark:border-dark-tertiary">
+        {/* Mobile close button */}
+        <div className="sm:hidden mb-2">
+          <button
+            onClick={() => setIsMobileSidebarOpen(false)}
+            className="inline-flex items-center gap-2 rounded px-2 py-1 text-sm hover:bg-gray-200 dark:hover:bg-dark-tertiary"
+            aria-label="Cerrar menú"
+          >
+            ✕
+          </button>
+        </div>
         <div className="mb-3 flex items-center justify-between gap-2">
           <h2 className={`font-semibold tracking-tight ${sidebarMode === 'compact' ? 'text-sm' : 'text-lg'}`}>
             {sidebarMode === 'compact' ? 'QN' : 'QuickNotes'}
           </h2>
           <button
             onClick={toggleSidebarMode}
-            className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-600 transition-colors hover:bg-gray-50 dark:border-dark-tertiary dark:bg-dark-secondary dark:text-gray-300 dark:hover:bg-dark-tertiary"
+            className="hidden sm:inline-flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-600 transition-colors hover:bg-gray-50 dark:border-dark-tertiary dark:bg-dark-secondary dark:text-gray-300 dark:hover:bg-dark-tertiary"
             title={sidebarMode === 'compact' ? 'Agrandar panel' : 'Compactar panel'}
           >
             <FiMenu size={18} />

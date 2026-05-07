@@ -34,12 +34,13 @@ const Header: React.FC = () => {
         <div className="flex items-center gap-4 flex-1">
           <button
             onClick={() => setShowMainSidebar(!showMainSidebar)}
-            className="p-2 hover:bg-gray-200 dark:hover:bg-dark-tertiary rounded-lg"
+            className="p-2 hover:bg-gray-200 dark:hover:bg-dark-tertiary rounded-lg hidden sm:inline-flex"
             title={showMainSidebar ? 'Ocultar panel lateral' : 'Mostrar panel lateral'}
           >
             <FiMenu size={20} />
           </button>
-          <h1 className="text-2xl font-bold">{getTitle()}</h1>
+          {/* Mobile menu opened via swipe gesture - no button */}
+          <h1 className="text-xl sm:text-2xl font-bold truncate">{getTitle()}</h1>
         </div>
 
         {currentTab !== 'settings' && currentTab !== 'todos' && (

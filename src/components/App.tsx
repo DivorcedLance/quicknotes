@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useRef } from 'react';
 import { useAppStore } from '../stores/appStore';
 import { useTheme } from '../hooks/useTheme';
 import Sidebar from './Sidebar';
@@ -21,11 +21,64 @@ const App: React.FC = () => {
     currentNotesFolderViewId,
     currentTodoFolderViewId,
     showMainSidebar,
+    isMobileSidebarOpen,
+    setIsMobileSidebarOpen,
   } = useAppStore();
 
+  const touchStartX = useRef<number | null>(null);
+  const touchCurrentX = useRef<number | null>(null);
+
+  const onTouchStart = (e: React.TouchEvent) => {
+    if (e.touches && e.touches.length === 1) {
+      touchStartX.current = e.touches[0].clientX;
+      touchCurrentX.current = touchStartX.current;
+    }
+  };
+
+  const onTouchMove = (e: React.TouchEvent) => {
+    if (e.touches && e.touches.length === 1) {
+      touchCurrentX.current = e.touches[0].clientX;
+    }
+  };
+
+  const onTouchEnd = () => {
+    const start = touchStartX.current;
+    const end = touchCurrentX.current;
+    if (start == null || end == null) {
+      touchStartX.current = null;
+      touchCurrentX.current = null;
+      return;
+    }
+    const dx = end - start;
+    // swipe right from left edge to open
+    if (start < 30 && dx > 50) {
+      setIsMobileSidebarOpen(true);
+    }
+    // swipe left to close when open
+    if (isMobileSidebarOpen && dx < -50) {
+      setIsMobileSidebarOpen(false);
+    }
+    touchStartX.current = null;
+    touchCurrentX.current = null;
+  };
+
   return (
-    <div className="relative flex h-screen bg-light-primary dark:bg-dark-primary text-gray-900 dark:text-gray-100">
-      {showMainSidebar && <Sidebar />}
+    <div
+      className="relative flex h-screen bg-light-primary dark:bg-dark-primary text-gray-900 dark:text-gray-100"
+      onTouchStart={onTouchStart}
+      onTouchMove={onTouchMove}
+      onTouchEnd={onTouchEnd}
+    >
+      {(showMainSidebar || isMobileSidebarOpen) && <Sidebar />}
+      {/* Backdrop for mobile sidebar */}
+      {isMobileSidebarOpen && (
+        <div
+          className="fixed inset-0 z-30 bg-black/40 sm:hidden"
+          onClick={() => setIsMobileSidebarOpen(false)}
+          aria-hidden
+        />
+      )}
+      {/* Mobile sidebar is opened via swipe gesture from the left edge */}
       {!showMainSidebar && (
         <button
           onClick={() => useAppStore.getState().setShowMainSidebar(true)}

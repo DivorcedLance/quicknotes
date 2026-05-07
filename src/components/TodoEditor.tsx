@@ -153,20 +153,20 @@ const TodoEditor: React.FC<TodoEditorProps> = ({ todoId, onClose }) => {
     <div className="relative h-full overflow-hidden bg-light-primary text-gray-900 dark:bg-dark-primary dark:text-gray-100">
       <button
         onClick={handleBack}
-        className="absolute left-4 top-4 z-20 inline-flex items-center gap-2 rounded-full border border-gray-200 bg-white/90 px-3 py-2 text-sm backdrop-blur hover:bg-white dark:border-dark-tertiary dark:bg-dark-secondary/90 dark:hover:bg-dark-secondary"
+        className="absolute left-4 top-4 z-20 inline-flex items-center gap-2 rounded-full border border-gray-200 bg-white/90 px-2 py-2 sm:px-3 text-sm backdrop-blur hover:bg-white dark:border-dark-tertiary dark:bg-dark-secondary/90 dark:hover:bg-dark-secondary"
       >
-        <FiArrowLeft /> Volver
+        <FiArrowLeft /> <span className="hidden sm:inline">Volver</span>
       </button>
 
-      <div className="absolute right-4 top-4 z-20 flex items-center gap-2">
+      <div className="absolute right-4 top-4 z-20 flex flex-col gap-2 sm:flex-row sm:items-center">
         <label className="flex items-center gap-2 rounded-full border border-gray-200 bg-white/85 px-3 py-2 text-xs text-gray-600 shadow-sm backdrop-blur dark:border-dark-tertiary dark:bg-dark-secondary/85 dark:text-gray-300">
           <FiSearch />
           <input
             type="text"
             value={editorSearchQuery}
             onChange={(event) => setEditorSearchQuery(event.target.value)}
-            placeholder="Buscar en la tarea"
-            className="w-40 border-0 bg-transparent p-0 text-xs outline-none placeholder:text-gray-400 lg:w-56"
+            placeholder="Buscar"
+            className="w-24 border-0 bg-transparent p-0 text-xs outline-none placeholder:text-gray-400 sm:w-40 lg:w-56"
           />
         </label>
 
@@ -174,7 +174,7 @@ const TodoEditor: React.FC<TodoEditorProps> = ({ todoId, onClose }) => {
           onClick={() => useAppStore.getState().setShowInspectorPanel(!showInspectorPanel)}
           className="inline-flex items-center gap-2 rounded-full border border-gray-200 bg-white/85 px-3 py-2 text-xs text-gray-600 shadow-sm backdrop-blur hover:bg-white dark:border-dark-tertiary dark:bg-dark-secondary/85 dark:text-gray-300 dark:hover:bg-dark-secondary"
         >
-          {showInspectorPanel ? <FiEyeOff /> : <FiEye />} Etiquetas
+          {showInspectorPanel ? <FiEyeOff /> : <FiEye />} <span className="hidden sm:inline">Etiquetas</span>
         </button>
       </div>
 

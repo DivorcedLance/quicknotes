@@ -20,6 +20,8 @@ interface AppStore {
   setSearchQuery: (query: string) => void;
   showMainSidebar: boolean;
   setShowMainSidebar: (show: boolean) => void;
+  isMobileSidebarOpen: boolean;
+  setIsMobileSidebarOpen: (open: boolean) => void;
   sidebarMode: 'expanded' | 'compact';
   setSidebarMode: (mode: 'expanded' | 'compact') => void;
   toggleSidebarMode: () => void;
@@ -146,4 +148,6 @@ export const useAppStore = create<AppStore>((set) => ({
     }
     set({ dateTimeFormat: format });
   },
+  isMobileSidebarOpen: false,
+  setIsMobileSidebarOpen: (open) => set({ isMobileSidebarOpen: open }),
 }));
