@@ -189,6 +189,29 @@ const SettingsView: React.FC = () => {
             </label>
           </div>
 
+          <div className="card bg-purple-50 dark:bg-purple-900 border border-purple-200 dark:border-purple-800">
+            <p className="text-sm font-medium mb-2">🔔 Notificaciones del Calendario</p>
+            <p className="text-sm mb-4">
+              Activa las notificaciones para recibir recordatorios de eventos del calendario.
+              Necesitarás conceder permiso al navegador para mostrar notificaciones.
+            </p>
+            <label className="flex items-center gap-3 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={settings.notificationsEnabled}
+                onChange={(e) => {
+                  const enabled = e.target.checked;
+                  if (enabled && 'Notification' in window) {
+                    Notification.requestPermission();
+                  }
+                  updateSettings({ notificationsEnabled: enabled });
+                }}
+                className="rounded"
+              />
+              <span className="text-sm">Notificaciones habilitadas</span>
+            </label>
+          </div>
+
           <div>
             <label className="block">
               <span className="block text-sm font-medium mb-2">Formato de fechas</span>

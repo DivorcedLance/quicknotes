@@ -49,6 +49,27 @@ self.addEventListener('activate', (event) => {
   self.clients.claim()
 })
 
+// Notification click - open or focus the app and navigate to calendar
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close()
+  const urlToOpen = new URL('./', self.location).href
+
+  const openPromise = clients
+    .matchAll({ type: 'window', includeUncontrolled: true })
+    .then((windowClients) => {
+      // If a window client is already open, focus it
+      for (const client of windowClients) {
+        if (client.url === urlToOpen && 'focus' in client) {
+          return client.focus()
+        }
+      }
+      // Otherwise open a new window
+      return clients.openWindow(urlToOpen)
+    })
+
+  event.waitUntil(openPromise)
+})
+
 // Fetch event - serve from cache, fallback to network
 self.addEventListener('fetch', (event) => {
   // Skip non-GET requests

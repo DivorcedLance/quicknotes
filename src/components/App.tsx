@@ -1,6 +1,8 @@
-import React, { useRef } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { useAppStore } from '../stores/appStore';
 import { useTheme } from '../hooks/useTheme';
+import { useSettingsStore } from '../stores/settingsStore';
+import { useCalendarStore } from '../stores/calendarStore';
 import Sidebar from './Sidebar';
 import NotesView from './NotesView';
 import TodosView from './TodosView';
@@ -11,6 +13,8 @@ import NoteFolderView from './NoteFolderView';
 import TodoFolderView from './TodoFolderView';
 import NoteEditor from './NoteEditor';
 import TodoEditor from './TodoEditor';
+import CalendarView from './CalendarView';
+import CalendarEventEditor from './CalendarEventEditor';
 
 const App: React.FC = () => {
   useTheme();
@@ -20,10 +24,41 @@ const App: React.FC = () => {
     currentTodoId,
     currentNotesFolderViewId,
     currentTodoFolderViewId,
+    currentCalendarEventId,
     showMainSidebar,
     isMobileSidebarOpen,
     setIsMobileSidebarOpen,
   } = useAppStore();
+
+  const { settings } = useSettingsStore();
+  const { events } = useCalendarStore();
+  const notifiedRef = useRef<Set<string>>(new Set());
+
+  // Notification scheduler - checks every minute for events that need notifications
+  useEffect(() => {
+    if (!settings.notificationsEnabled) return;
+    if (!('Notification' in window) || Notification.permission !== 'granted') return;
+
+    const check = () => {
+      const now = Date.now();
+      events.forEach((evt) => {
+        if (!evt.notify) return;
+        const notificationTime = evt.startDate - evt.notifyBefore * 60000;
+        if (notificationTime <= now && now < evt.startDate && !notifiedRef.current.has(evt.id)) {
+          notifiedRef.current.add(evt.id);
+          new Notification('QuickNotes - Recordatorio', {
+            body: evt.title || 'Evento sin título',
+            icon: '/pwa-icon.svg',
+            tag: evt.id,
+          });
+        }
+      });
+    };
+
+    check();
+    const interval = setInterval(check, 60000);
+    return () => clearInterval(interval);
+  }, [settings.notificationsEnabled, events]);
 
   const touchStartX = useRef<number | null>(null);
   const touchCurrentX = useRef<number | null>(null);
@@ -89,7 +124,13 @@ const App: React.FC = () => {
         </button>
       )}
       <div className="flex-1 overflow-auto">
-        {currentNoteId ? (
+        {currentCalendarEventId ? (
+          <CalendarEventEditor
+            key={currentCalendarEventId}
+            eventId={currentCalendarEventId}
+            onClose={() => useAppStore.getState().setCurrentCalendarEventId(null)}
+          />
+        ) : currentNoteId ? (
           <NoteEditor
             key={currentNoteId}
             noteId={currentNoteId}
@@ -105,6 +146,8 @@ const App: React.FC = () => {
           <NoteFolderView />
         ) : currentTodoFolderViewId ? (
           <TodoFolderView />
+        ) : currentTab === 'calendar' ? (
+          <CalendarView />
         ) : currentTab === 'tags' ? (
           <TagsView />
         ) : currentTab === 'notes' ? (

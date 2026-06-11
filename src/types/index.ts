@@ -44,10 +44,39 @@ export interface Tag {
   description: string;
 }
 
+export interface RecurrenceRule {
+  frequency: 'daily' | 'weekly' | 'monthly' | 'yearly';
+  interval: number;
+  byDay?: number[];
+  byMonthDay?: number[];
+  byMonth?: number[];
+  endDate?: number;
+  count?: number;
+  indefinite?: boolean;
+}
+
+export interface CalendarEvent {
+  id: string;
+  title: string;
+  description: string;
+  images: ImageData[];
+  startDate: number;
+  endDate: number | null;
+  allDay: boolean;
+  color: string;
+  tags: string[];
+  notify: boolean;
+  notifyBefore: number;
+  recurrence: RecurrenceRule | null;
+  createdAt: number;
+  updatedAt: number;
+}
+
 export interface UserSettings {
   theme: 'light' | 'dark' | 'system';
   language: string;
   fontSize: number;
+  notificationsEnabled: boolean;
 }
 
 export interface Database {
@@ -57,5 +86,6 @@ export interface Database {
   todos: Todo[];
   tags: Tag[];
   settings: UserSettings;
+  calendarEvents: CalendarEvent[];
   version: string;
 }

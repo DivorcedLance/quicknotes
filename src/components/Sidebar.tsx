@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { FiBookmark, FiCheck, FiSettings, FiFolder, FiPlus, FiMoon, FiSun, FiMenu, FiSearch, FiTag } from 'react-icons/fi';
+import { FiBookmark, FiCheck, FiSettings, FiFolder, FiPlus, FiMoon, FiSun, FiMenu, FiSearch, FiTag, FiCalendar } from 'react-icons/fi';
 import { useAppStore } from '../stores/appStore';
 import { useFoldersStore } from '../stores/foldersStore';
 import { useNotesStore } from '../stores/notesStore';
@@ -186,6 +186,19 @@ const Sidebar: React.FC = () => {
             }`}
           >
             <FiTag /> {sidebarMode === 'compact' ? '' : 'Etiquetas'}
+          </button>
+          <button
+            onClick={() => {
+              clearOpenViews();
+              setCurrentTab('calendar');
+            }}
+            className={`flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm transition-colors ${
+              currentTab === 'calendar'
+                ? 'bg-blue-500 text-white'
+                : 'hover:bg-gray-300 dark:hover:bg-dark-tertiary'
+            }`}
+          >
+            <FiCalendar /> {sidebarMode === 'compact' ? '' : 'Calendario'}
           </button>
           <button
             onClick={() => {

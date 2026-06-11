@@ -6,6 +6,7 @@ import { useFoldersStore } from './foldersStore';
 import { useTodoFoldersStore } from './todoFoldersStore';
 import { useTagsStore } from './tagsStore';
 import { useSettingsStore } from './settingsStore';
+import { useCalendarStore } from './calendarStore';
 
 interface DatabaseStore {
   exportDatabase: () => string;
@@ -22,7 +23,8 @@ export const useDatabaseStore = create<DatabaseStore>(() => ({
       todoFolders: useTodoFoldersStore.getState().folders,
       tags: useTagsStore.getState().tags,
       settings: useSettingsStore.getState().settings,
-      version: '1.1.0',
+      calendarEvents: useCalendarStore.getState().events,
+      version: '1.2.0',
     };
     return JSON.stringify(database, null, 2);
   },
@@ -52,6 +54,9 @@ export const useDatabaseStore = create<DatabaseStore>(() => ({
       if (database.settings) {
         useSettingsStore.getState().updateSettings(database.settings);
       }
+      if (Array.isArray(database.calendarEvents)) {
+        useCalendarStore.getState().loadEvents(database.calendarEvents);
+      }
 
       return true;
     } catch (error) {
@@ -66,10 +71,12 @@ export const useDatabaseStore = create<DatabaseStore>(() => ({
     localStorage.removeItem('quicknotes_folders');
     localStorage.removeItem('quicknotes_todo_folders');
     localStorage.removeItem('quicknotes_tags');
+    localStorage.removeItem('quicknotes_calendar_events');
     useNotesStore.setState({ notes: [] });
     useTodosStore.setState({ todos: [] });
     useFoldersStore.setState({ folders: [] });
     useTodoFoldersStore.setState({ folders: [] });
     useTagsStore.setState({ tags: [] });
+    useCalendarStore.setState({ events: [] });
   },
 }));

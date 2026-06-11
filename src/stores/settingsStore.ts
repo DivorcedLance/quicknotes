@@ -12,6 +12,7 @@ const defaultSettings: UserSettings = {
   theme: 'system',
   language: 'es',
   fontSize: 16,
+  notificationsEnabled: false,
 };
 
 export const useSettingsStore = create<SettingsStore>((set, get) => ({

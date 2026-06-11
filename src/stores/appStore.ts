@@ -2,8 +2,8 @@ import { create } from 'zustand';
 import type { DateTimeFormat } from '../utils/helpers';
 
 interface AppStore {
-  currentTab: 'notes' | 'todos' | 'tags' | 'settings';
-  setCurrentTab: (tab: 'notes' | 'todos' | 'tags' | 'settings') => void;
+  currentTab: 'notes' | 'todos' | 'tags' | 'settings' | 'calendar';
+  setCurrentTab: (tab: 'notes' | 'todos' | 'tags' | 'settings' | 'calendar') => void;
   currentNoteId: string | null;
   setCurrentNoteId: (noteId: string | null) => void;
   currentNotesFolderId: string | null;
@@ -16,6 +16,12 @@ interface AppStore {
   setCurrentTodoFolderId: (folderId: string | null) => void;
   currentTodoFolderViewId: string | null;
   setCurrentTodoFolderViewId: (folderId: string | null) => void;
+  currentCalendarEventId: string | null;
+  setCurrentCalendarEventId: (id: string | null) => void;
+  calendarView: 'day' | 'week' | 'month' | 'year' | 'list';
+  setCalendarView: (view: 'day' | 'week' | 'month' | 'year' | 'list') => void;
+  calendarDate: number;
+  setCalendarDate: (date: number) => void;
   searchQuery: string;
   setSearchQuery: (query: string) => void;
   showMainSidebar: boolean;
@@ -62,6 +68,13 @@ export const useAppStore = create<AppStore>((set) => ({
 
   currentTodoFolderViewId: null,
   setCurrentTodoFolderViewId: (folderId) => set({ currentTodoFolderViewId: folderId }),
+
+  currentCalendarEventId: null,
+  setCurrentCalendarEventId: (id) => set({ currentCalendarEventId: id }),
+  calendarView: 'month',
+  setCalendarView: (view) => set({ calendarView: view }),
+  calendarDate: Date.now(),
+  setCalendarDate: (date) => set({ calendarDate: date }),
 
   searchQuery: '',
   setSearchQuery: (query) => set({ searchQuery: query }),
