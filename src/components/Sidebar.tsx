@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { FiBookmark, FiCheck, FiSettings, FiFolder, FiPlus, FiMoon, FiSun, FiMenu, FiSearch, FiTag, FiCalendar } from 'react-icons/fi';
+import { FiBookmark, FiCheck, FiSettings, FiFolder, FiPlus, FiMoon, FiSun, FiMenu, FiSearch, FiTag, FiCalendar, FiActivity } from 'react-icons/fi';
 import { useAppStore } from '../stores/appStore';
 import { useFoldersStore } from '../stores/foldersStore';
 import { useNotesStore } from '../stores/notesStore';
@@ -114,7 +114,7 @@ const Sidebar: React.FC = () => {
   return (
     <aside
       className={`bg-light-secondary dark:bg-dark-secondary transition-transform duration-200 border-r border-gray-200 dark:border-dark-tertiary
-        ${sidebarMode === 'compact' && !isMobileSidebarOpen ? 'w-20' : 'w-72'}
+        ${sidebarMode === 'compact' && !isMobileSidebarOpen ? 'w-16' : 'w-72'}
         flex-col overflow-y-auto shrink-0
         fixed inset-y-0 left-0 z-40 transform ${isMobileSidebarOpen ? 'translate-x-0' : '-translate-x-full'} sm:translate-x-0 sm:relative sm:flex
         `}
@@ -132,10 +132,12 @@ const Sidebar: React.FC = () => {
             ✕
           </button>
         </div>
-        <div className="mb-3 flex items-center justify-between gap-2">
-          <h2 className={`font-semibold tracking-tight ${sidebarMode === 'compact' ? 'text-sm' : 'text-lg'}`}>
-            {sidebarMode === 'compact' ? 'QN' : 'QuickNotes'}
-          </h2>
+        <div className={`mb-3 flex items-center gap-2 ${sidebarMode === 'compact' ? 'justify-center' : 'justify-between'}`}>
+          {sidebarMode !== 'compact' && (
+            <h2 className="font-semibold tracking-tight text-lg">
+              QuickNotes
+            </h2>
+          )}
           <button
             onClick={toggleSidebarMode}
             className="hidden sm:inline-flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-600 transition-colors hover:bg-gray-50 dark:border-dark-tertiary dark:bg-dark-secondary dark:text-gray-300 dark:hover:bg-dark-tertiary"
@@ -199,6 +201,19 @@ const Sidebar: React.FC = () => {
             }`}
           >
             <FiCalendar /> {sidebarMode === 'compact' ? '' : 'Calendario'}
+          </button>
+          <button
+            onClick={() => {
+              clearOpenViews();
+              setCurrentTab('activities');
+            }}
+            className={`flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm transition-colors ${
+              currentTab === 'activities'
+                ? 'bg-blue-500 text-white'
+                : 'hover:bg-gray-300 dark:hover:bg-dark-tertiary'
+            }`}
+          >
+            <FiActivity /> {sidebarMode === 'compact' ? '' : 'Actividades'}
           </button>
           <button
             onClick={() => {
@@ -434,12 +449,14 @@ const Sidebar: React.FC = () => {
         </div>
       )}
 
-      <div className="border-t border-gray-200 p-3 dark:border-dark-tertiary">
+      <div className={`border-t border-gray-200 dark:border-dark-tertiary ${sidebarMode === 'compact' ? 'flex justify-center p-2' : 'p-3'}`}>
         <button
           onClick={toggleTheme}
-          className="inline-flex w-full items-center justify-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm hover:bg-gray-50 dark:border-dark-tertiary dark:bg-dark-secondary dark:hover:bg-dark-tertiary"
+          className={`inline-flex items-center justify-center rounded-lg border border-gray-200 bg-white transition-colors hover:bg-gray-50 dark:border-dark-tertiary dark:bg-dark-secondary dark:hover:bg-dark-tertiary ${
+            sidebarMode === 'compact' ? 'h-9 w-9' : 'w-full px-3 py-2 text-sm'
+          }`}
         >
-          {getTheme() === 'dark' ? <FiSun /> : <FiMoon />} Tema
+          {getTheme() === 'dark' ? <FiSun size={18} /> : <FiMoon size={18} />}
         </button>
       </div>
     </aside>

@@ -2,8 +2,8 @@ import { create } from 'zustand';
 import type { DateTimeFormat } from '../utils/helpers';
 
 interface AppStore {
-  currentTab: 'notes' | 'todos' | 'tags' | 'settings' | 'calendar';
-  setCurrentTab: (tab: 'notes' | 'todos' | 'tags' | 'settings' | 'calendar') => void;
+  currentTab: 'notes' | 'todos' | 'tags' | 'settings' | 'calendar' | 'activities';
+  setCurrentTab: (tab: 'notes' | 'todos' | 'tags' | 'settings' | 'calendar' | 'activities') => void;
   currentNoteId: string | null;
   setCurrentNoteId: (noteId: string | null) => void;
   currentNotesFolderId: string | null;

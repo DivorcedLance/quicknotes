@@ -7,6 +7,7 @@ import { useTodoFoldersStore } from './todoFoldersStore';
 import { useTagsStore } from './tagsStore';
 import { useSettingsStore } from './settingsStore';
 import { useCalendarStore } from './calendarStore';
+import { useActivitiesStore } from './activitiesStore';
 
 interface DatabaseStore {
   exportDatabase: () => string;
@@ -24,7 +25,10 @@ export const useDatabaseStore = create<DatabaseStore>(() => ({
       tags: useTagsStore.getState().tags,
       settings: useSettingsStore.getState().settings,
       calendarEvents: useCalendarStore.getState().events,
-      version: '1.2.0',
+      activityTypes: useActivitiesStore.getState().types,
+      activityDefinitions: useActivitiesStore.getState().definitions,
+      activityInstances: useActivitiesStore.getState().instances,
+      version: '2.0.0',
     };
     return JSON.stringify(database, null, 2);
   },
@@ -57,6 +61,15 @@ export const useDatabaseStore = create<DatabaseStore>(() => ({
       if (Array.isArray(database.calendarEvents)) {
         useCalendarStore.getState().loadEvents(database.calendarEvents);
       }
+      if (Array.isArray(database.activityTypes)) {
+        useActivitiesStore.getState().loadTypes(database.activityTypes);
+      }
+      if (Array.isArray(database.activityDefinitions)) {
+        useActivitiesStore.getState().loadDefinitions(database.activityDefinitions);
+      }
+      if (Array.isArray(database.activityInstances)) {
+        useActivitiesStore.getState().loadInstances(database.activityInstances);
+      }
 
       return true;
     } catch (error) {
@@ -72,11 +85,15 @@ export const useDatabaseStore = create<DatabaseStore>(() => ({
     localStorage.removeItem('quicknotes_todo_folders');
     localStorage.removeItem('quicknotes_tags');
     localStorage.removeItem('quicknotes_calendar_events');
+    localStorage.removeItem('quicknotes_activity_types');
+    localStorage.removeItem('quicknotes_activity_definitions');
+    localStorage.removeItem('quicknotes_activity_instances');
     useNotesStore.setState({ notes: [] });
     useTodosStore.setState({ todos: [] });
     useFoldersStore.setState({ folders: [] });
     useTodoFoldersStore.setState({ folders: [] });
     useTagsStore.setState({ tags: [] });
     useCalendarStore.setState({ events: [] });
+    useActivitiesStore.setState({ types: [], definitions: [], instances: [] });
   },
 }));

@@ -44,6 +44,61 @@ export interface Tag {
   description: string;
 }
 
+/* ─── Activities ─── */
+export interface ActivityType {
+  id: string;
+  name: string;
+  color: string;
+}
+
+export interface ActivityDefinition {
+  id: string;
+  typeId: string;
+  title: string;
+  description: string;
+  shortName: string;
+  color: string;
+  images: ImageData[];
+  recurrence: RecurrenceRule | null;
+  createdAt: number;
+}
+
+export type ActivityStatus = 'pending' | 'in-progress' | 'completed' | 'postponed' | 'cancelled';
+
+export const ACTIVITY_STATUSES: ActivityStatus[] = ['pending', 'in-progress', 'completed', 'postponed', 'cancelled'];
+export const ACTIVITY_STATUS_LABELS: Record<ActivityStatus, string> = {
+  'pending': 'Pendiente',
+  'in-progress': 'Ejecutando',
+  'completed': 'Completada',
+  'postponed': 'Pospuesta',
+  'cancelled': 'Cancelada',
+};
+export const ACTIVITY_STATUS_COLORS: Record<ActivityStatus, string> = {
+  'pending': '#6b7280',
+  'in-progress': '#3b82f6',
+  'completed': '#22c55e',
+  'postponed': '#f59e0b',
+  'cancelled': '#ef4444',
+};
+
+export interface ActivityInstance {
+  id: string;
+  definitionId: string;
+  status: ActivityStatus;
+  secondaryTitle: string;
+  description: string;
+  images: ImageData[];
+  date: number;
+  year: number;
+  month: number;
+  weekOfMonth: number;
+  sortOrder: number;
+  postponedFrom: string | null;
+  postponedHistory: string[];
+  createdAt: number;
+  updatedAt: number;
+}
+
 export interface RecurrenceRule {
   frequency: 'daily' | 'weekly' | 'monthly' | 'yearly';
   interval: number;
@@ -87,5 +142,8 @@ export interface Database {
   tags: Tag[];
   settings: UserSettings;
   calendarEvents: CalendarEvent[];
+  activityTypes?: ActivityType[];
+  activityDefinitions?: ActivityDefinition[];
+  activityInstances?: ActivityInstance[];
   version: string;
 }

@@ -15,6 +15,7 @@ import NoteEditor from './NoteEditor';
 import TodoEditor from './TodoEditor';
 import CalendarView from './CalendarView';
 import CalendarEventEditor from './CalendarEventEditor';
+import ActivitiesView from './ActivitiesView';
 
 const App: React.FC = () => {
   useTheme();
@@ -154,6 +155,8 @@ const App: React.FC = () => {
           <NotesView />
         ) : currentTab === 'todos' ? (
           <TodosView />
+        ) : currentTab === 'activities' ? (
+          <ActivitiesView />
         ) : (
           <SettingsView />
         )}
