@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect, useRef, useLayoutEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef, useLayoutEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { FiChevronLeft, FiChevronRight, FiPlus, FiClock, FiCalendar, FiSun } from 'react-icons/fi';
 import { useAppStore } from '../stores/appStore';
@@ -6,6 +6,8 @@ import { useCalendarStore } from '../stores/calendarStore';
 import { useSettingsStore } from '../stores/settingsStore';
 import { generateId } from '../utils/helpers';
 import type { CalendarEvent } from '../types';
+import { DndContext, DragOverlay, useDraggable, useDroppable } from '@dnd-kit/core';
+import type { DragStartEvent, DragEndEvent, DragOverEvent } from '@dnd-kit/core';
 
 const DAY_NAMES = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
 const MONTH_NAMES = [
@@ -74,6 +76,67 @@ function assignColumns(intervals: { id: string; startMin: number; endMin: number
   return result;
 }
 
+/* ─── @dnd-kit helper components ─── */
+
+/** A droppable zone for an hour cell. id format: "hour:{dayTs}:{hour}" */
+const HourDroppable: React.FC<{ dayTs: number; hour: number; className: string; style: React.CSSProperties; onDoubleClick: () => void; onContextMenu: (e: React.MouseEvent) => void; children?: React.ReactNode }> =
+  ({ dayTs, hour, className, style, onDoubleClick, onContextMenu, children }) => {
+    const { setNodeRef, isOver } = useDroppable({ id: `hour:${dayTs}:${hour}` });
+    return (
+      <div ref={setNodeRef} onDoubleClick={onDoubleClick} onContextMenu={onContextMenu}
+        className={className} style={style} data-over={isOver ? 'true' : undefined}>
+        {children}
+      </div>
+    );
+  };
+
+/** A droppable zone for an all-day column. id format: "allday:{dayTs}" */
+const AllDayDroppable: React.FC<{ dayTs: number; className: string; onContextMenu: (e: React.MouseEvent) => void; children?: React.ReactNode }> =
+  ({ dayTs, className, onContextMenu, children }) => {
+    const { setNodeRef, isOver } = useDroppable({ id: `allday:${dayTs}` });
+    return (
+      <div ref={setNodeRef} onContextMenu={onContextMenu}
+        className={className} data-over={isOver ? 'true' : undefined}>
+        {children}
+      </div>
+    );
+  };
+
+/** A droppable zone for a month day cell. id format: "month:{dayTs}" */
+const MonthDayDroppable: React.FC<{ dayTs: number; className: string; onDoubleClick: () => void; onClick: () => void; children?: React.ReactNode }> =
+  ({ dayTs, className, onDoubleClick, onClick, children }) => {
+    const { setNodeRef, isOver } = useDroppable({ id: `month:${dayTs}` });
+    return (
+      <div ref={setNodeRef} onDoubleClick={onDoubleClick} onClick={onClick}
+        className={className} data-over={isOver ? 'true' : undefined}>
+        {children}
+      </div>
+    );
+  };
+
+/** A draggable event wrapper. id = event ID */
+const DraggableEvent: React.FC<{
+  eventId: string; disabled?: boolean;
+  className: string; style: React.CSSProperties;
+  onMouseEnter: (e: React.MouseEvent) => void;
+  onMouseMove: (e: React.MouseEvent) => void;
+  onMouseLeave: () => void;
+  onClick: () => void;
+  children?: React.ReactNode;
+}> = ({ eventId, disabled, className, style, onMouseEnter, onMouseMove, onMouseLeave, onClick, children }) => {
+  const { setNodeRef, listeners, attributes, isDragging } = useDraggable({
+    id: eventId,
+    disabled,
+  });
+  return (
+    <div ref={setNodeRef} {...listeners} {...attributes}
+      onMouseEnter={onMouseEnter} onMouseMove={onMouseMove} onMouseLeave={onMouseLeave} onClick={onClick}
+      className={className} style={style} data-dragging={isDragging ? 'true' : undefined}>
+      {children}
+    </div>
+  );
+};
+
 /* ─── Main Calendar ─── */
 const CalendarView: React.FC = () => {
   const { calendarView, setCalendarView, calendarDate, setCalendarDate, setCurrentCalendarEventId } = useAppStore();
@@ -129,59 +192,54 @@ const CalendarView: React.FC = () => {
     setCurrentCalendarEventId(eventId);
   };
 
-  const handleDropOnDay = (dayTimestamp: number) => (e: React.DragEvent) => {
-    e.preventDefault();
-    setDragOverHour(null);
-    const eventId = e.dataTransfer.getData('text/calendar-event-id');
-    if (eventId) {
-      const ev = events.find((evt) => evt.id === eventId);
-      if (ev) {
-        const diff = ev.startDate - startOfDay(ev.startDate);
-        const ns = dayTimestamp + diff;
-        const dur = ev.endDate ? ev.endDate - ev.startDate : 0;
-        updateEvent(eventId, { startDate: ns, endDate: ev.endDate ? ns + dur : null });
-      }
-    }
-  };
+  // DndContext handlers
+  const [activeEvent, setActiveEvent] = useState<CalendarEvent | null>(null);
 
-  const handleDropOnHour = (hourTimestamp: number) => (e: React.DragEvent) => {
-    e.preventDefault();
-    setDragOverHour(null);
-    const eventId = e.dataTransfer.getData('text/calendar-event-id');
-    if (eventId) {
-      const ev = events.find((evt) => evt.id === eventId);
-      if (ev) {
-        const origMin = new Date(ev.startDate).getMinutes();
-        const ns = new Date(hourTimestamp);
-        ns.setMinutes(origMin);
-        const nst = ns.getTime();
-        const dur = ev.endDate ? ev.endDate - ev.startDate : 3600000;
-        updateEvent(eventId, { startDate: nst, endDate: ev.endDate ? nst + dur : null });
-      }
-    }
-  };
-
-  const handleDragStart = (eventId: string) => (e: React.DragEvent) => {
+  const handleDndStart = useCallback((event: DragStartEvent) => {
     setHoveredEvent(null);
-    e.dataTransfer.setData('text/calendar-event-id', eventId);
-    e.dataTransfer.effectAllowed = 'move';
-    // Remove default drag ghost
-    const img = new Image(); img.src = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
-    e.dataTransfer.setDragImage(img, 0, 0);
-    const el = e.currentTarget as HTMLElement;
-    el.classList.add('dragging-source');
-    el.closest('.calendar-views-container')?.classList.add('calendar-dragging');
-  };
+    setDragOverHour(null);
+    const ev = events.find((e) => e.id === event.active.id);
+    if (ev) setActiveEvent(ev);
+    document.body.classList.add('dragging-active');
+  }, [events]);
 
-  // Clean up drag CSS classes when any drag ends
-  useEffect(() => {
-    const handler = () => {
-      document.querySelector('.dragging-source')?.classList.remove('dragging-source');
-      document.querySelector('.calendar-dragging')?.classList.remove('calendar-dragging');
-    };
-    document.addEventListener('dragend', handler);
-    return () => document.removeEventListener('dragend', handler);
+  const handleDndOver = useCallback((event: DragOverEvent) => {
+    if (!event.over) { setDragOverHour(null); return; }
+    const id = event.over.id as string;
+    const parts = id.split(':');
+    if (parts[0] === 'hour') {
+      const dayTs = parseInt(parts[1], 10);
+      const hour = parseFloat(parts[2]);
+      setDragOverHour({ dayTs, hour });
+    }
   }, []);
+
+  const handleDndEnd = useCallback((event: DragEndEvent) => {
+    setActiveEvent(null);
+    setDragOverHour(null);
+    document.body.classList.remove('dragging-active');
+    if (!event.over) return;
+    const eventId = event.active.id as string;
+    const overId = event.over.id as string;
+    const parts = overId.split(':');
+    const ev = events.find((e) => e.id === eventId);
+    if (!ev) return;
+    const dayTs = parseInt(parts[1], 10);
+    if (parts[0] === 'hour') {
+      const hour = parseFloat(parts[2]);
+      const origMin = new Date(ev.startDate).getMinutes();
+      const ns = new Date(dayTs + hour * 3600000);
+      ns.setMinutes(origMin);
+      const nst = ns.getTime();
+      const dur = ev.endDate ? ev.endDate - ev.startDate : 3600000;
+      updateEvent(eventId, { startDate: nst, endDate: ev.endDate ? nst + dur : null });
+    } else {
+      const diff = ev.startDate - startOfDay(ev.startDate);
+      const ns = dayTs + diff;
+      const dur = ev.endDate ? ev.endDate - ev.startDate : 0;
+      updateEvent(eventId, { startDate: ns, endDate: ev.endDate ? ns + dur : null });
+    }
+  }, [events, updateEvent]);
 
   const handleResizeMouseDown = (eventId: string, edge: 'start' | 'end') => (e: React.MouseEvent) => {
     e.preventDefault(); e.stopPropagation();
@@ -281,52 +339,60 @@ const CalendarView: React.FC = () => {
         </div>
       )}
 
-      <style>{`.calendar-dragging .calendar-event:not(.dragging-source) { pointer-events: none !important; }`}</style>
-      {/* Calendar body */}
-      <div className="calendar-views-container flex-1 overflow-auto">
-        {calendarView === 'month' && (
-          <MonthView
-            year={year} month={month} events={events}
-            onHover={setHoveredEvent} fontSize={fontSize}
-            onDayClick={handleDayClick} onNewEvent={handleNewEvent} onEditEvent={handleEditEvent}
-            onDrop={handleDropOnDay} onDragStart={handleDragStart}
-          />
-        )}
-        {calendarView === 'week' && (
-          <WeekView
-            date={calendarDate} events={events}
-            onHover={setHoveredEvent} fontSize={fontSize}
-            onNewEvent={handleNewEvent} onEditEvent={handleEditEvent}
-            onDrop={handleDropOnHour} onDropOnDay={handleDropOnDay} onDragStart={handleDragStart}
-            onResizeMouseDown={handleResizeMouseDown} resizing={resizing?.id ?? null}
-            dragOverHour={dragOverHour} onDragOverHour={setDragOverHour}
-            onContextMenu={setContextMenu}
-          />
-        )}
-        {calendarView === 'day' && (
-          <DayView
-            date={calendarDate} events={events}
-            onHover={setHoveredEvent} fontSize={fontSize}
-            onNewEvent={handleNewEvent} onEditEvent={handleEditEvent}
-            onDragStart={handleDragStart}
-            onDropOnDay={handleDropOnDay}
-            onResizeMouseDown={handleResizeMouseDown} resizing={resizing?.id ?? null}
-            dragOverHour={dragOverHour} onDragOverHour={setDragOverHour}
-            onContextMenu={setContextMenu}
-          />
-        )}
-        {calendarView === 'year' && (
-          <YearView year={year} events={events} fontSize={fontSize}
-            onMonthClick={(m) => { setCalendarDate(new Date(year, m, 1).getTime()); setCalendarView('month'); }}
-          />
-        )}
-        {calendarView === 'list' && (
-          <ListView
-            date={calendarDate} events={events} fontSize={fontSize}
-            onEditEvent={handleEditEvent} onNewEvent={handleNewEvent}
-          />
-        )}
-      </div>
+      <style>{`
+body.dragging-active .tooltip-portal { display: none !important; }
+`}</style>
+      <DndContext onDragStart={handleDndStart} onDragEnd={handleDndEnd} onDragOver={handleDndOver}>
+        {/* Calendar body */}
+        <div className="flex-1 overflow-auto">
+          {calendarView === 'month' && (
+            <MonthView
+              year={year} month={month} events={events}
+              onHover={setHoveredEvent} fontSize={fontSize}
+              onDayClick={handleDayClick} onNewEvent={handleNewEvent} onEditEvent={handleEditEvent}
+            />
+          )}
+          {calendarView === 'week' && (
+            <WeekView
+              date={calendarDate} events={events}
+              onHover={setHoveredEvent} fontSize={fontSize}
+              onNewEvent={handleNewEvent} onEditEvent={handleEditEvent}
+              onResizeMouseDown={handleResizeMouseDown} resizing={resizing?.id ?? null}
+              dragOverHour={dragOverHour}
+              onContextMenu={setContextMenu}
+            />
+          )}
+          {calendarView === 'day' && (
+            <DayView
+              date={calendarDate} events={events}
+              onHover={setHoveredEvent} fontSize={fontSize}
+              onNewEvent={handleNewEvent} onEditEvent={handleEditEvent}
+              onResizeMouseDown={handleResizeMouseDown} resizing={resizing?.id ?? null}
+              dragOverHour={dragOverHour}
+              onContextMenu={setContextMenu}
+            />
+          )}
+          {calendarView === 'year' && (
+            <YearView year={year} events={events} fontSize={fontSize}
+              onMonthClick={(m) => { setCalendarDate(new Date(year, m, 1).getTime()); setCalendarView('month'); }}
+            />
+          )}
+          {calendarView === 'list' && (
+            <ListView
+              date={calendarDate} events={events} fontSize={fontSize}
+              onEditEvent={handleEditEvent} onNewEvent={handleNewEvent}
+            />
+          )}
+        </div>
+        <DragOverlay>
+          {activeEvent && (
+            <div className="rounded-lg px-3 py-2 text-sm text-white shadow-lg select-none pointer-events-none"
+              style={{ backgroundColor: activeEvent.color, width: 200 }}>
+              <div className="font-medium truncate">{activeEvent.title || '(sin título)'}</div>
+            </div>
+          )}
+        </DragOverlay>
+      </DndContext>
     </div>
   );
 };
@@ -383,7 +449,7 @@ const TooltipPortal: React.FC<{ event: CalendarEvent; x: number; y: number }> = 
   }, [x, y]);
 
   return createPortal(
-    <div ref={elRef} style={{ position: 'fixed', left: finalPos.left, top: finalPos.top, zIndex: 9999, visibility: finalPos.ready ? 'visible' : 'hidden' }} className="pointer-events-none">
+    <div ref={elRef} style={{ position: 'fixed', left: finalPos.left, top: finalPos.top, zIndex: 9999, visibility: finalPos.ready ? 'visible' : 'hidden' }} className="pointer-events-none tooltip-portal">
       <EventTooltip event={event} />
     </div>,
     document.body
@@ -395,8 +461,7 @@ const MonthView: React.FC<{
   year: number; month: number; events: CalendarEvent[];
   onHover: (id: string | null) => void; fontSize: number;
   onDayClick: (ts: number) => void; onNewEvent: (ts: number) => void; onEditEvent: (id: string) => void;
-  onDrop: (ts: number) => (e: React.DragEvent) => void; onDragStart: (id: string) => (e: React.DragEvent) => void;
-}> = ({ year, month, events, onHover, fontSize, onDayClick, onNewEvent, onEditEvent, onDrop, onDragStart }) => {
+}> = ({ year, month, events, onHover, fontSize, onDayClick, onNewEvent, onEditEvent }) => {
   const [tooltipState, setTooltipState] = useState<{ event: CalendarEvent; x: number; y: number } | null>(null);
   const daysInMonth = getDaysInMonth(year, month);
   const firstDay = getFirstDayOfMonth(year, month);
@@ -415,46 +480,44 @@ const MonthView: React.FC<{
     <div className="p-4" style={{ fontSize }}>
       <div className="grid grid-cols-7 gap-px">
         {DAY_NAMES.map((n) => <div key={n} className="p-2 text-center text-xs font-semibold text-gray-500">{n}</div>)}
-        {slots.map((slot) => {
-          const dayEvents = events.filter((evt) => {
-            const es = evt.startDate, ee = evt.endDate ?? evt.startDate;
-            const ds = slot.timestamp, de = ds + 86400000;
-            return es < de && ee >= ds;
-          });
-          const today = isToday(slot.timestamp);
-          return (
-            <div key={slot.timestamp}
-              onDoubleClick={() => onNewEvent(slot.timestamp)}
-              onDragOver={(e) => e.preventDefault()}
-              onDrop={onDrop(slot.timestamp)}
-              onClick={() => onDayClick(slot.timestamp)}
-              className={`relative min-h-[100px] cursor-pointer rounded-lg border p-1 text-sm transition-colors ${
-                slot.isCurrentMonth ? 'border-gray-100 dark:border-dark-tertiary' : 'border-gray-50 bg-gray-50/50 dark:border-dark-tertiary/50 dark:bg-dark-secondary/30'
-              } ${today ? 'ring-2 ring-blue-500' : 'hover:bg-gray-100 dark:hover:bg-dark-tertiary'}`}
-            >
-              <div className={`mb-1 flex h-6 w-6 items-center justify-center rounded-full text-xs font-medium ${
-                today ? 'bg-blue-500 text-white' : slot.isCurrentMonth ? 'text-gray-700 dark:text-gray-300' : 'text-gray-400'
-              }`}>{slot.day}</div>
-              <div className="space-y-0.5">
-                {dayEvents.slice(0, 3).map((evt) => (
-                  <div key={evt.id} draggable onDragStart={onDragStart(evt.id)}
-                    onMouseEnter={(e) => { onHover(evt.id); setTooltipState({ event: evt, x: e.clientX, y: e.clientY }); }}
-                    onMouseMove={(e) => { setTooltipState(prev => prev ? { ...prev, x: e.clientX, y: e.clientY } : null); }}
-                    onMouseLeave={() => { onHover(null); setTooltipState(null); }}
-                    onClick={(e) => { e.stopPropagation(); onEditEvent(evt.id); }}
-                    className={`calendar-event relative truncate rounded px-1 py-0.5 text-xs cursor-pointer hover:opacity-80 flex items-center gap-1 ${evt.endDate ? 'text-white' : 'text-white/90'}`}
-                    style={{ backgroundColor: evt.color }}
-                  >
-                    <EventBadge event={evt} />
-                    {evt.allDay ? <FiSun size={10} /> : new Date(evt.startDate).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }) + ' '}
-                    {evt.title || '(sin título)'}
-                  </div>
-                ))}
-                {dayEvents.length > 3 && <div className="text-xs text-gray-500 px-1">+{dayEvents.length - 3} más</div>}
-              </div>
-            </div>
-          );
-        })}
+          {slots.map((slot) => {
+            const dayEvents = events.filter((evt) => {
+              const es = evt.startDate, ee = evt.endDate ?? evt.startDate;
+              const ds = slot.timestamp, de = ds + 86400000;
+              return es < de && ee >= ds;
+            });
+            const today = isToday(slot.timestamp);
+            return (
+              <MonthDayDroppable key={slot.timestamp} dayTs={slot.timestamp}
+                onDoubleClick={() => onNewEvent(slot.timestamp)}
+                onClick={() => onDayClick(slot.timestamp)}
+                className={`relative min-h-[100px] cursor-pointer rounded-lg border p-1 text-sm transition-colors ${
+                  slot.isCurrentMonth ? 'border-gray-100 dark:border-dark-tertiary' : 'border-gray-50 bg-gray-50/50 dark:border-dark-tertiary/50 dark:bg-dark-secondary/30'
+                } ${today ? 'ring-2 ring-blue-500' : 'hover:bg-gray-100 dark:hover:bg-dark-tertiary'}`}
+              >
+                <div className={`mb-1 flex h-6 w-6 items-center justify-center rounded-full text-xs font-medium ${
+                  today ? 'bg-blue-500 text-white' : slot.isCurrentMonth ? 'text-gray-700 dark:text-gray-300' : 'text-gray-400'
+                }`}>{slot.day}</div>
+                <div className="space-y-0.5">
+                  {dayEvents.slice(0, 3).map((evt) => (
+                    <DraggableEvent key={evt.id} eventId={evt.id}
+                      onMouseEnter={(e) => { onHover(evt.id); setTooltipState({ event: evt, x: e.clientX, y: e.clientY }); }}
+                      onMouseMove={(e) => { setTooltipState(prev => prev ? { ...prev, x: e.clientX, y: e.clientY } : null); }}
+                      onMouseLeave={() => { onHover(null); setTooltipState(null); }}
+                      onClick={() => onEditEvent(evt.id)}
+                      className={`calendar-event relative truncate rounded px-1 py-0.5 text-xs cursor-pointer hover:opacity-80 flex items-center gap-1 ${evt.endDate ? 'text-white' : 'text-white/90'}`}
+                      style={{ backgroundColor: evt.color }}
+                    >
+                      <EventBadge event={evt} />
+                      {evt.allDay ? <FiSun size={10} /> : new Date(evt.startDate).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }) + ' '}
+                      {evt.title || '(sin título)'}
+                    </DraggableEvent>
+                  ))}
+                  {dayEvents.length > 3 && <div className="text-xs text-gray-500 px-1">+{dayEvents.length - 3} más</div>}
+                </div>
+              </MonthDayDroppable>
+            );
+          })}
       </div>
       {tooltipState && <TooltipPortal event={tooltipState.event} x={tooltipState.x} y={tooltipState.y} />}
     </div>
@@ -466,12 +529,10 @@ const WeekView: React.FC<{
   date: number; events: CalendarEvent[];
   onHover: (id: string | null) => void; fontSize: number;
   onNewEvent: (s: number, e?: number) => void; onEditEvent: (id: string) => void;
-  onDrop: (ts: number) => (e: React.DragEvent) => void; onDropOnDay: (ts: number) => (e: React.DragEvent) => void;
-  onDragStart: (id: string) => (e: React.DragEvent) => void;
   onResizeMouseDown: (id: string, edge: 'start' | 'end') => (e: React.MouseEvent) => void; resizing: string | null;
-  dragOverHour: { dayTs: number; hour: number } | null; onDragOverHour: (v: { dayTs: number; hour: number } | null) => void;
+  dragOverHour: { dayTs: number; hour: number } | null;
   onContextMenu: (v: { x: number; y: number; ts: number; isAllDay?: boolean } | null) => void;
-}> = ({ date, events, onHover, fontSize, onNewEvent, onEditEvent, onDrop, onDropOnDay, onDragStart, onResizeMouseDown, resizing, dragOverHour, onDragOverHour, onContextMenu }) => {
+}> = ({ date, events, onHover, fontSize, onNewEvent, onEditEvent, onResizeMouseDown, resizing, dragOverHour, onContextMenu }) => {
   const [tooltipState, setTooltipState] = useState<{ event: CalendarEvent; x: number; y: number } | null>(null);
   const [now, setNow] = useState(Date.now());
   useEffect(() => { const id = setInterval(() => setNow(Date.now()), 60000); return () => clearInterval(id); }, []);
@@ -535,23 +596,20 @@ const WeekView: React.FC<{
         {weekDays.map((day) => {
           const dayAllDay = allDayEvents.filter((evt) => isSameDay(evt.startDate, day.timestamp));
           return (
-            <div key={day.timestamp}
-              onDragOver={(e) => e.preventDefault()}
-              onDrop={onDropOnDay(day.timestamp)}
+            <AllDayDroppable key={day.timestamp} dayTs={day.timestamp}
               onContextMenu={(e) => { e.preventDefault(); onContextMenu({ x: e.clientX, y: e.clientY, ts: day.timestamp, isAllDay: true }); }}
               className="flex flex-wrap gap-0.5 border-l border-amber-200/50 p-1 dark:border-amber-800/30 min-h-[2rem]">
               {dayAllDay.map((evt) => (
-                <div key={evt.id} draggable
-                  onDragStart={onDragStart(evt.id)}
+                <DraggableEvent key={evt.id} eventId={evt.id}
                   onMouseEnter={(e) => { onHover(evt.id); setTooltipState({ event: evt, x: e.clientX, y: e.clientY }); }}
                   onMouseMove={(e) => { setTooltipState(prev => prev ? { ...prev, x: e.clientX, y: e.clientY } : null); }}
                   onMouseLeave={() => { onHover(null); setTooltipState(null); }} onClick={() => onEditEvent(evt.id)}
                   className="calendar-event relative flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] text-white cursor-pointer hover:opacity-80 truncate max-w-full"
                   style={{ backgroundColor: evt.color }}>
                   <FiSun size={9} /> {evt.title || '(sin título)'}
-                </div>
+                </DraggableEvent>
               ))}
-            </div>
+            </AllDayDroppable>
           );
         })}
       </div>
@@ -570,17 +628,8 @@ const WeekView: React.FC<{
               <div style={{ position: 'relative', height: HOUR_HEIGHT * 24 }}>
                 {/* Hour grid cells */}
                 {HOURS.map((h) => (
-                  <div key={h}
+                  <HourDroppable key={h} dayTs={day.timestamp} hour={h}
                     onDoubleClick={() => handleSlotClick(day.timestamp, h)}
-                    onDragOver={(e) => {
-                      e.preventDefault();
-                      const rect = e.currentTarget.getBoundingClientRect();
-                      const relY = e.clientY - rect.top;
-                      const absoluteHour = h + Math.round(relY / HOUR_HEIGHT * 10) / 10;
-                      onDragOverHour({ dayTs: day.timestamp, hour: Math.min(23.75, Math.max(0, absoluteHour)) });
-                    }}
-                    onDragLeave={() => onDragOverHour(null)}
-                    onDrop={(e) => { onDrop(day.timestamp + h * 3600000)(e); onDragOverHour(null); }}
                     onContextMenu={(e) => { e.preventDefault(); onContextMenu({ x: e.clientX, y: e.clientY, ts: day.timestamp + h * 3600000 }); }}
                     className="absolute w-full cursor-pointer hover:bg-blue-50/50 dark:hover:bg-blue-950/30"
                     style={{ top: h * HOUR_HEIGHT, height: HOUR_HEIGHT, borderBottom: '1px solid rgba(0,0,0,0.06)' }}
@@ -597,9 +646,8 @@ const WeekView: React.FC<{
                 {laidOut.map(({ event: evt, column, total, top, height }) => {
                   const isReminder = !evt.endDate;
                   return (
-                    <div key={evt.id}
-                      draggable={resizing !== evt.id}
-                      onDragStart={resizing !== evt.id ? onDragStart(evt.id) : undefined}
+                    <DraggableEvent key={evt.id} eventId={evt.id}
+                      disabled={resizing === evt.id}
                       onMouseEnter={(e) => { onHover(evt.id); setTooltipState({ event: evt, x: e.clientX, y: e.clientY }); }}
                       onMouseMove={(e) => { setTooltipState(prev => prev ? { ...prev, x: e.clientX, y: e.clientY } : null); }}
                       onMouseLeave={() => { onHover(null); setTooltipState(null); }}
@@ -619,7 +667,7 @@ const WeekView: React.FC<{
                       </div>
                       {evt.endDate && <div onMouseDown={onResizeMouseDown(evt.id, 'start')} className="absolute left-0 right-0 top-0 z-30 h-2 cursor-ns-resize hover:bg-white/30" />}
                       {evt.endDate && <div onMouseDown={onResizeMouseDown(evt.id, 'end')} className="absolute left-0 right-0 bottom-0 z-30 h-2 cursor-ns-resize hover:bg-white/30" />}
-                    </div>
+                    </DraggableEvent>
                   );
                 })}
                 {day.isToday && (() => {
@@ -642,12 +690,10 @@ const DayView: React.FC<{
   date: number; events: CalendarEvent[];
   onHover: (id: string | null) => void; fontSize: number;
   onNewEvent: (s: number, e?: number) => void; onEditEvent: (id: string) => void;
-  onDragStart: (id: string) => (e: React.DragEvent) => void;
-  onDropOnDay: (ts: number) => (e: React.DragEvent) => void;
   onResizeMouseDown: (id: string, edge: 'start' | 'end') => (e: React.MouseEvent) => void; resizing: string | null;
-  dragOverHour: { dayTs: number; hour: number } | null; onDragOverHour: (v: { dayTs: number; hour: number } | null) => void;
+  dragOverHour: { dayTs: number; hour: number } | null;
   onContextMenu: (v: { x: number; y: number; ts: number; isAllDay?: boolean } | null) => void;
-}> = ({ date, events, onHover, fontSize, onNewEvent, onEditEvent, onDragStart, onDropOnDay, onResizeMouseDown, resizing, dragOverHour, onDragOverHour, onContextMenu }) => {
+}> = ({ date, events, onHover, fontSize, onNewEvent, onEditEvent, onResizeMouseDown, resizing, dragOverHour, onContextMenu }) => {
   const [tooltipState, setTooltipState] = useState<{ event: CalendarEvent; x: number; y: number } | null>(null);
   const [now, setNow] = useState(Date.now());
   useEffect(() => { const id = setInterval(() => setNow(Date.now()), 60000); return () => clearInterval(id); }, []);
@@ -680,25 +726,23 @@ const DayView: React.FC<{
         {new Date(date).toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' })}
       </h3>
 
-      <div className="border-b bg-amber-50/50 px-4 py-2 dark:bg-amber-950/20"
-        onDragOver={(e) => e.preventDefault()}
-        onDrop={onDropOnDay(ds)}
-        onContextMenu={(e) => { e.preventDefault(); onContextMenu({ x: e.clientX, y: e.clientY, ts: ds, isAllDay: true }); }}>
+      <AllDayDroppable dayTs={ds}
+        onContextMenu={(e) => { e.preventDefault(); onContextMenu({ x: e.clientX, y: e.clientY, ts: ds, isAllDay: true }); }}
+        className="border-b bg-amber-50/50 px-4 py-2 dark:bg-amber-950/20">
         <div className="flex items-center gap-2 text-xs font-medium text-amber-600 dark:text-amber-400 mb-1"><FiSun size={12} /> Todo el día</div>
         <div className="flex flex-wrap gap-1">
           {allDayEvts.map((evt) => (
-            <div key={evt.id} draggable
-              onDragStart={onDragStart(evt.id)}
+            <DraggableEvent key={evt.id} eventId={evt.id}
               onMouseEnter={(e) => { onHover(evt.id); setTooltipState({ event: evt, x: e.clientX, y: e.clientY }); }}
               onMouseMove={(e) => { setTooltipState(prev => prev ? { ...prev, x: e.clientX, y: e.clientY } : null); }}
               onMouseLeave={() => { onHover(null); setTooltipState(null); }} onClick={() => onEditEvent(evt.id)}
               className="calendar-event relative flex items-center gap-1 rounded px-2 py-1 text-xs text-white cursor-pointer hover:opacity-80"
               style={{ backgroundColor: evt.color }}>
               <FiSun size={10} /> {evt.title || '(sin título)'}
-            </div>
+            </DraggableEvent>
           ))}
         </div>
-      </div>
+      </AllDayDroppable>
 
       <div className="flex flex-1">
         <div className="w-14 shrink-0 border-r border-gray-100 dark:border-dark-tertiary">
@@ -709,28 +753,8 @@ const DayView: React.FC<{
 
         <div className="relative flex-1" style={{ height: HOUR_HEIGHT * 24 }}>
           {HOURS.map((h) => (
-            <div key={h}
+            <HourDroppable key={h} dayTs={ds} hour={h}
               onDoubleClick={() => handleSlotClick(h)}
-              onDragOver={(e) => {
-                e.preventDefault();
-                const rect = e.currentTarget.getBoundingClientRect();
-                const relY = e.clientY - rect.top;
-                const absoluteHour = h + Math.round(relY / HOUR_HEIGHT * 10) / 10;
-                onDragOverHour({ dayTs: ds, hour: Math.min(23.75, Math.max(0, absoluteHour)) });
-              }}
-              onDragLeave={() => onDragOverHour(null)}
-              onDrop={(e) => {
-                e.preventDefault(); onDragOverHour(null);
-                const eventId = e.dataTransfer.getData('text/calendar-event-id');
-                if (!eventId) return;
-                const ev = events.find((evt) => evt.id === eventId);
-                if (!ev) return;
-                const origMin = new Date(ev.startDate).getMinutes();
-                const ns = new Date(ds + h * 3600000); ns.setMinutes(origMin);
-                const nst = ns.getTime();
-                const dur = ev.endDate ? ev.endDate - ev.startDate : 3600000;
-                useCalendarStore.getState().updateEvent(eventId, { startDate: nst, endDate: ev.endDate ? nst + dur : null });
-              }}
               onContextMenu={(e) => { e.preventDefault(); onContextMenu({ x: e.clientX, y: e.clientY, ts: ds + h * 3600000 }); }}
               className="absolute left-0 right-0 cursor-pointer hover:bg-blue-50/50 dark:hover:bg-blue-950/30"
               style={{ top: h * HOUR_HEIGHT, height: HOUR_HEIGHT, borderBottom: '1px solid rgba(0,0,0,0.06)' }}
@@ -747,9 +771,8 @@ const DayView: React.FC<{
           {laidOut.map(({ event: evt, column, total, top, height }) => {
             const isReminder = !evt.endDate;
             return (
-              <div key={evt.id}
-                draggable={resizing !== evt.id}
-                onDragStart={resizing !== evt.id ? onDragStart(evt.id) : undefined}
+              <DraggableEvent key={evt.id} eventId={evt.id}
+                disabled={resizing === evt.id}
                 onMouseEnter={(e) => { onHover(evt.id); setTooltipState({ event: evt, x: e.clientX, y: e.clientY }); }}
                 onMouseMove={(e) => { setTooltipState(prev => prev ? { ...prev, x: e.clientX, y: e.clientY } : null); }}
                 onMouseLeave={() => { onHover(null); setTooltipState(null); }}
@@ -769,7 +792,7 @@ const DayView: React.FC<{
                 </div>
                 {evt.endDate && <div onMouseDown={onResizeMouseDown(evt.id, 'start')} className="absolute left-0 right-0 top-0 z-30 h-2 cursor-ns-resize hover:bg-white/30" />}
                 {evt.endDate && <div onMouseDown={onResizeMouseDown(evt.id, 'end')} className="absolute left-0 right-0 bottom-0 z-30 h-2 cursor-ns-resize hover:bg-white/30" />}
-              </div>
+              </DraggableEvent>
             );
           })}
           {isToday(ds) && (() => {
