@@ -132,6 +132,7 @@ export interface UserSettings {
   language: string;
   fontSize: number;
   notificationsEnabled: boolean;
+  activityHoverView?: 'compact' | 'detailed';
 }
 
 export interface Database {

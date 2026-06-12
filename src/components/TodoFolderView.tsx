@@ -19,24 +19,23 @@ const TodoFolderView: React.FC = () => {
   const todos = useTodosStore((state) => state.todos);
 
   const folder = folders.find((item) => item.id === folderViewId) ?? null;
-  const folderPath = useMemo(() => (folderViewId ? getFolderPath(folderViewId) : []), [folderViewId, folders]);
+  const folderPath = useMemo(() => (folderViewId ? getFolderPath(folderViewId) : []), [folderViewId, getFolderPath]);
   const childFolders = useMemo(
     () => folders.filter((item) => item.parentId === folderViewId),
     [folders, folderViewId]
   );
 
-  const getAllDescendantFolderIds = (parentId: string): string[] => {
-    const descendants: string[] = [parentId];
-    const children = folders.filter((item) => item.parentId === parentId);
-    children.forEach((child) => {
-      descendants.push(...getAllDescendantFolderIds(child.id));
-    });
-    return descendants;
-  };
-
   const folderTodos = useMemo(
     () => {
       if (!folderViewId) return [];
+      const getAllDescendantFolderIds = (parentId: string): string[] => {
+        const descendants: string[] = [parentId];
+        const children = folders.filter((item) => item.parentId === parentId);
+        children.forEach((child) => {
+          descendants.push(...getAllDescendantFolderIds(child.id));
+        });
+        return descendants;
+      };
       const descendantFolderIds = getAllDescendantFolderIds(folderViewId);
       return todos.filter((item) => item.folderId !== null && descendantFolderIds.includes(item.folderId));
     },
@@ -46,6 +45,7 @@ const TodoFolderView: React.FC = () => {
   const [folderName, setFolderName] = useState(folder?.name ?? '');
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setFolderName(folder?.name ?? '');
   }, [folder?.id, folder?.name]);
 

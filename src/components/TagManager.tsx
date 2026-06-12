@@ -12,11 +12,11 @@ const TagManager: React.FC<TagManagerProps> = ({ tagId, onClose }) => {
   const { tags, updateTag } = useTagsStore();
   const tag = tags.find((t) => t.id === tagId);
 
-  if (!tag) return null;
+  const [name, setName] = useState(tag?.name ?? '');
+  const [color, setColor] = useState(tag?.color ?? '#4ECDC4');
+  const [description, setDescription] = useState(tag?.description ?? '');
 
-  const [name, setName] = useState(tag.name);
-  const [color, setColor] = useState(tag.color);
-  const [description, setDescription] = useState(tag.description);
+  if (!tag) return null;
 
   const presetColors = [
     '#FF6B6B',

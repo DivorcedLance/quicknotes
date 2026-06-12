@@ -99,7 +99,7 @@ const TodosView: React.FC = () => {
     });
 
     return grouped;
-  }, [scopedTodos, todos, sortTodosByDate]);
+  }, [scopedTodos, sortTodosByDate]);
 
   const toggleTagFilter = (tagId: string) => {
     setSelectedTagFilters(

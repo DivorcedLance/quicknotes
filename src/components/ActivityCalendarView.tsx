@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import { DndContext, DragOverlay, useDraggable, useDroppable } from '@dnd-kit/core';
 import type { DragStartEvent, DragEndEvent } from '@dnd-kit/core';
 import { useActivitiesStore } from '../stores/activitiesStore';
-import type { ActivityInstance, ActivityStatus, ActivityDefinition } from '../types';
+import type { ActivityInstance, ActivityDefinition } from '../types';
 import { ACTIVITY_STATUS_LABELS, ACTIVITY_STATUS_COLORS } from '../types';
 
 const MONTH_NAMES = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Setiembre', 'Octubre', 'Noviembre', 'Diciembre'];
@@ -39,11 +39,13 @@ const ActivityCell: React.FC<{
 /* ─── Hover popup ─── */
 type HoverTarget = { inst: ActivityInstance; def?: ActivityDefinition; x: number; y: number; color: string } | null;
 let hoverPopupSetter: React.Dispatch<React.SetStateAction<HoverTarget>> | null = null;
+let hoverViewMode: 'compact' | 'detailed' = 'compact';
 
 const HoverPopup: React.FC = () => {
   const [target, setTarget] = useState<HoverTarget>(null);
   useEffect(() => { hoverPopupSetter = setTarget; return () => { hoverPopupSetter = null; }; }, []);
   if (!target) return null;
+  const detailed = hoverViewMode === 'detailed';
   return createPortal(
     <div className="fixed z-[70] max-w-xs rounded-xl border bg-white p-3 shadow-xl dark:border-dark-tertiary dark:bg-dark-secondary pointer-events-none"
       style={{ left: target.x + 12, top: target.y - 10 }}>
@@ -54,14 +56,15 @@ const HoverPopup: React.FC = () => {
           className="text-[9px] text-white px-1 rounded">{ACTIVITY_STATUS_LABELS[target.inst.status]}</span>
       </div>
       {target.inst.secondaryTitle && <div className="text-xs font-medium mb-1">{target.inst.secondaryTitle}</div>}
-      {target.def?.title && <div className="text-[10px] text-gray-500 mb-1">{target.def.title}</div>}
+      {target.def?.title && <div className={`text-[10px] text-gray-500 mb-1`}>{target.def.title}{detailed ? ` (${target.def.shortName})` : ''}</div>}
       {target.inst.description && (
-        <div className="text-[10px] text-gray-600 dark:text-gray-400 line-clamp-4 [&_img]:max-h-20 [&_img]:rounded"
-          dangerouslySetInnerHTML={{ __html: target.inst.description.replace(/<img[^>]+>/g, '') }} />
+        <div className={`text-[10px] text-gray-600 dark:text-gray-400 ${detailed ? '' : 'line-clamp-4'} [&_img]:max-h-20 [&_img]:rounded`}
+          dangerouslySetInnerHTML={{ __html: detailed ? target.inst.description : target.inst.description.replace(/<img[^>]+>/g, '') }} />
       )}
       <div className="mt-1 text-[9px] text-gray-400">
-        {new Date(target.inst.date).toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })}
+        Año {target.inst.year} · Mes {target.inst.month + 1} · S{target.inst.weekOfMonth}
         {target.inst.postponedHistory?.length > 0 && ` · ${target.inst.postponedHistory.length} aplazamiento${target.inst.postponedHistory.length > 1 ? 's' : ''}`}
+        {detailed && target.inst.postponedFrom && ` · Aplazada`}
       </div>
     </div>,
     document.body
@@ -75,17 +78,16 @@ const DraggableInstance: React.FC<{
   defColor: string;
   defShortName?: string;
   def?: ActivityDefinition;
-  onClick?: () => void; onContextMenu?: (e: React.MouseEvent) => void;
+  onClick?: (e: React.MouseEvent) => void; onContextMenu?: (e: React.MouseEvent) => void;
 }> = ({ instance, mode, defColor, defShortName, def, onClick, onContextMenu }) => {
   const { setNodeRef, listeners, attributes, isDragging } = useDraggable({
     id: `activity-instance:${instance.id}`,
     disabled: mode === 'status',
-    activationConstraint: { distance: 8 },
   } as any);
   const color = ACTIVITY_STATUS_COLORS[instance.status];
   return (
     <div ref={setNodeRef} {...(mode === 'planning' ? listeners : {})} {...(mode === 'planning' ? attributes : {})}
-      onClick={onClick} onContextMenu={onContextMenu}
+      onClick={(e) => { e.stopPropagation(); onClick?.(e); }} onContextMenu={onContextMenu}
       onMouseEnter={(e) => hoverPopupSetter?.({ inst: instance, def, x: e.clientX, y: e.clientY, color: defColor })}
       onMouseMove={(e) => hoverPopupSetter?.({ inst: instance, def, x: e.clientX, y: e.clientY, color: defColor })}
       onMouseLeave={() => setTimeout(() => hoverPopupSetter?.((prev) => prev?.inst.id === instance.id ? null : prev), 50)}
@@ -132,12 +134,13 @@ interface Props {
   mode: 'planning' | 'status';
   onContextMenu: (m: ActivityContextMenuState) => void;
   onEditInstance: (id: string) => void;
-  onChangeStatus: (id: string, status: ActivityStatus) => void;
+  onViewInstance?: (id: string) => void;
   onCellClick: (year: number, month: number, week: number) => void;
   scrollToTodayRef?: React.MutableRefObject<(() => void) | null>;
+  hoverView?: 'compact' | 'detailed';
 }
 
-const ActivityCalendarView: React.FC<Props> = ({ mode, onContextMenu, onEditInstance, onChangeStatus, onCellClick, scrollToTodayRef }) => {
+const ActivityCalendarView: React.FC<Props> = ({ mode, onContextMenu, onEditInstance, onViewInstance, onCellClick, scrollToTodayRef, hoverView = 'compact' }) => {
   const { definitions, instances, moveInstance } = useActivitiesStore();
   const [activeId, setActiveId] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -166,12 +169,15 @@ const ActivityCalendarView: React.FC<Props> = ({ mode, onContextMenu, onEditInst
     }
   }, [months]);
 
+  // Sync hover view setting to module-level variable
+  useEffect(() => { hoverViewMode = hoverView; }, [hoverView]);
+
   // Scroll to today ("Hoy")
   const scrollToToday = () => {
     currentMonthRef.current?.scrollIntoView({ block: 'center', behavior: 'smooth' });
   };
   // Expose via ref
-  useEffect(() => { if (scrollToTodayRef) scrollToTodayRef.current = scrollToToday; }, []);
+  useEffect(() => { if (scrollToTodayRef) scrollToTodayRef.current = scrollToToday; }, [scrollToTodayRef]);
 
   // Load more months via IntersectionObserver
   useEffect(() => {
@@ -323,11 +329,10 @@ const ActivityCalendarView: React.FC<Props> = ({ mode, onContextMenu, onEditInst
                             return (
                               <DraggableInstance key={inst.id} instance={inst} mode={mode} def={def}
                                 defColor={def?.color ?? '#666'} defShortName={def?.shortName}
-                                onClick={() => {
+                                onClick={(e) => {
+                                  e.stopPropagation();
                                   if (mode === 'status') {
-                                    onChangeStatus(inst.id, inst.status === 'completed' ? 'pending' :
-                                      inst.status === 'pending' ? 'in-progress' :
-                                      inst.status === 'in-progress' ? 'completed' : 'pending');
+                                    onViewInstance?.(inst.id);
                                   } else {
                                     onEditInstance(inst.id);
                                   }

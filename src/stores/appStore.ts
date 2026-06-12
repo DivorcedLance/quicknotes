@@ -1,6 +1,9 @@
 import { create } from 'zustand';
 import type { DateTimeFormat } from '../utils/helpers';
 
+type SortTodosByDate = 'createdAt' | 'updatedAt' | 'completedAt';
+type TodoFilterStatus = 'all' | 'completed' | 'pending';
+
 interface AppStore {
   currentTab: 'notes' | 'todos' | 'tags' | 'settings' | 'calendar' | 'activities';
   setCurrentTab: (tab: 'notes' | 'todos' | 'tags' | 'settings' | 'calendar' | 'activities') => void;
@@ -130,8 +133,8 @@ export const useAppStore = create<AppStore>((set) => ({
   setGroupByDate: (group) => set({ groupByDate: group }),
 
   sortTodosByDate:
-    typeof window !== 'undefined' && (window.localStorage.getItem('quicknotes.sortTodosByDate') as any)
-      ? (window.localStorage.getItem('quicknotes.sortTodosByDate') as any)
+    typeof window !== 'undefined' && (window.localStorage.getItem('quicknotes.sortTodosByDate') as SortTodosByDate | null)
+      ? (window.localStorage.getItem('quicknotes.sortTodosByDate') as SortTodosByDate)
       : 'updatedAt',
   setSortTodosByDate: (sortBy) => {
     if (typeof window !== 'undefined') {
@@ -141,8 +144,8 @@ export const useAppStore = create<AppStore>((set) => ({
   },
 
   todoFilterStatus:
-    typeof window !== 'undefined' && (window.localStorage.getItem('quicknotes.todoFilterStatus') as any)
-      ? (window.localStorage.getItem('quicknotes.todoFilterStatus') as any)
+    typeof window !== 'undefined' && (window.localStorage.getItem('quicknotes.todoFilterStatus') as TodoFilterStatus | null)
+      ? (window.localStorage.getItem('quicknotes.todoFilterStatus') as TodoFilterStatus)
       : 'all',
   setTodoFilterStatus: (status) => {
     if (typeof window !== 'undefined') {

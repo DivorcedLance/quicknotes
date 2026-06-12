@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { FiAlertTriangle, FiArrowLeft, FiCheck, FiPlus, FiSave, FiTag, FiTrash2 } from 'react-icons/fi';
 import { useAppStore } from '../stores/appStore';
 import { useNotesStore } from '../stores/notesStore';
@@ -7,7 +7,14 @@ import { useTodosStore } from '../stores/todosStore';
 import { generateId } from '../utils/helpers';
 import Tag from './Tag';
 
-const presetColors = [
+interface TagEditorFormProps {
+  tag: { id: string; name: string; color: string; description: string } | null;
+  isCreatingNew: boolean;
+  selectedTagId: string | null;
+  onSaved: () => void;
+}
+
+const presetColorsList = [
   '#FF6B6B',
   '#4ECDC4',
   '#45B7D1',
@@ -25,17 +32,117 @@ const presetColors = [
   '#FFB6C1',
 ];
 
+const TagEditorForm: React.FC<TagEditorFormProps> = ({ tag, isCreatingNew, selectedTagId, onSaved }) => {
+  const { addTag, updateTag } = useTagsStore();
+  const [name, setName] = useState(tag?.name ?? '');
+  const [color, setColor] = useState(tag?.color ?? '#4ECDC4');
+  const [description, setDescription] = useState(tag?.description ?? '');
+
+  const saveTag = () => {
+    const trimmedName = name.trim();
+    if (!trimmedName) return;
+
+    if (selectedTagId && !isCreatingNew) {
+      updateTag(selectedTagId, { name: trimmedName, color, description });
+    } else {
+      addTag({ id: generateId(), name: trimmedName, color, description });
+    }
+
+    onSaved();
+  };
+
+  return (
+    <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm dark:border-dark-tertiary dark:bg-dark-secondary">
+      <div className="mb-4 flex items-center gap-2">
+        <FiSave className="text-blue-500" />
+        <h3 className="text-lg font-semibold">{tag ? 'Editar etiqueta' : 'Nueva etiqueta'}</h3>
+      </div>
+
+      <div className="space-y-4">
+        <label className="block space-y-2">
+          <span className="block text-sm font-medium text-gray-600 dark:text-gray-300">Nombre*</span>
+          <input
+            type="text"
+            value={name}
+            onChange={(event) => setName(event.target.value)}
+            placeholder="Nombre de la etiqueta"
+            className="input-field"
+            autoFocus
+          />
+        </label>
+
+        <label className="block space-y-2">
+          <span className="block text-sm font-medium text-gray-600 dark:text-gray-300">Descripción</span>
+          <textarea
+            value={description}
+            onChange={(event) => setDescription(event.target.value)}
+            placeholder="Describe para qué sirve"
+            className="input-field min-h-24 resize-none"
+          />
+        </label>
+
+        <div>
+          <span className="mb-2 block text-sm font-medium text-gray-600 dark:text-gray-300">Color</span>
+          <div className="flex flex-wrap gap-2">
+            {presetColorsList.map((presetColor) => (
+              <button
+                key={presetColor}
+                onClick={() => setColor(presetColor)}
+                className={`h-9 w-9 rounded-lg transition-transform ${color === presetColor ? 'scale-110 ring-2 ring-offset-2 dark:ring-offset-dark-secondary' : ''}`}
+                style={{ backgroundColor: presetColor }}
+              />
+            ))}
+          </div>
+          <div className="mt-3 flex gap-2">
+            <input
+              type="color"
+              value={color}
+              onChange={(event) => setColor(event.target.value)}
+              className="h-12 w-12 cursor-pointer rounded border-2 border-gray-300 dark:border-dark-tertiary"
+            />
+            <input
+              type="text"
+              value={color}
+              onChange={(event) => setColor(event.target.value)}
+              className="input-field flex-1"
+              placeholder="#4ECDC4"
+            />
+          </div>
+        </div>
+
+        <div className="rounded-2xl border border-gray-200 bg-gray-50 p-4 dark:border-dark-tertiary dark:bg-dark-primary/30">
+          <p className="mb-2 text-sm font-medium text-gray-600 dark:text-gray-300">Vista previa</p>
+          <Tag tag={{ id: tag?.id || 'preview', name: name || 'Nueva etiqueta', color, description }} />
+        </div>
+
+        <div className="flex gap-2">
+          <button
+            onClick={saveTag}
+            className="flex-1 rounded-xl bg-green-500 px-4 py-3 text-sm font-medium text-white transition-colors hover:bg-green-600"
+            disabled={!name.trim()}
+          >
+            <FiCheck className="inline-block" /> Guardar
+          </button>
+          <button
+            onClick={onSaved}
+            className="rounded-xl bg-gray-200 px-4 py-3 text-sm font-medium text-gray-900 transition-colors hover:bg-gray-300 dark:bg-dark-tertiary dark:text-gray-100 dark:hover:bg-dark-secondary"
+          >
+            Limpiar
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 const TagsView: React.FC = () => {
   const { setCurrentTab, setCurrentNotesFolderViewId, setCurrentTodoFolderViewId, setCurrentNoteId, setCurrentTodoId } = useAppStore();
-  const { tags, addTag, updateTag, deleteTag } = useTagsStore();
+  const { tags, deleteTag } = useTagsStore();
   const { notes } = useNotesStore();
   const { todos } = useTodosStore();
 
   const [selectedTagId, setSelectedTagId] = useState<string | null>(null);
   const [isCreatingNew, setIsCreatingNew] = useState(false);
-  const [name, setName] = useState('');
-  const [color, setColor] = useState('#4ECDC4');
-  const [description, setDescription] = useState('');
   const [pendingDeleteTagId, setPendingDeleteTagId] = useState<string | null>(null);
 
   const activeTag = useMemo(
@@ -48,56 +155,13 @@ const TagsView: React.FC = () => {
     todos: todos.filter((todo) => todo.tags.includes(tagId)),
   });
 
-  useEffect(() => {
-    if (isCreatingNew) {
-      return;
-    }
-
-    if (!activeTag) {
-      setName('');
-      setColor('#4ECDC4');
-      setDescription('');
-      return;
-    }
-
-    setName(activeTag.name);
-    setColor(activeTag.color);
-    setDescription(activeTag.description);
-  }, [activeTag, isCreatingNew]);
-
   const startCreating = () => {
     setSelectedTagId(null);
     setIsCreatingNew(true);
-    setName('');
-    setColor('#4ECDC4');
-    setDescription('');
   };
 
   const startEditing = (tagId: string) => {
     setSelectedTagId(tagId);
-    setIsCreatingNew(false);
-  };
-
-  const saveTag = () => {
-    if (!name.trim()) {
-      return;
-    }
-
-    if (selectedTagId && !isCreatingNew) {
-      updateTag(selectedTagId, {
-        name: name.trim(),
-        color,
-        description,
-      });
-    } else {
-      addTag({
-        id: generateId(),
-        name: name.trim(),
-        color,
-        description,
-      });
-    }
-
     setIsCreatingNew(false);
   };
 
@@ -213,92 +277,16 @@ const TagsView: React.FC = () => {
           </section>
 
           <section className="space-y-4">
-            <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm dark:border-dark-tertiary dark:bg-dark-secondary">
-              <div className="mb-4 flex items-center gap-2">
-                <FiSave className="text-blue-500" />
-                <h3 className="text-lg font-semibold">{isCreatingNew ? 'Nueva etiqueta' : activeTag ? 'Editar etiqueta' : 'Editor'}</h3>
-              </div>
-
-              <div className="space-y-4">
-                <label className="block space-y-2">
-                  <span className="block text-sm font-medium text-gray-600 dark:text-gray-300">Nombre*</span>
-                  <input
-                    type="text"
-                    value={name}
-                    onChange={(event) => setName(event.target.value)}
-                    placeholder="Nombre de la etiqueta"
-                    className="input-field"
-                    autoFocus
-                  />
-                </label>
-
-                <label className="block space-y-2">
-                  <span className="block text-sm font-medium text-gray-600 dark:text-gray-300">Descripción</span>
-                  <textarea
-                    value={description}
-                    onChange={(event) => setDescription(event.target.value)}
-                    placeholder="Describe para qué sirve"
-                    className="input-field min-h-24 resize-none"
-                  />
-                </label>
-
-                <div>
-                  <span className="mb-2 block text-sm font-medium text-gray-600 dark:text-gray-300">Color</span>
-                  <div className="flex flex-wrap gap-2">
-                    {presetColors.map((presetColor) => (
-                      <button
-                        key={presetColor}
-                        onClick={() => setColor(presetColor)}
-                        className={`h-9 w-9 rounded-lg transition-transform ${color === presetColor ? 'scale-110 ring-2 ring-offset-2 dark:ring-offset-dark-secondary' : ''}`}
-                        style={{ backgroundColor: presetColor }}
-                      />
-                    ))}
-                  </div>
-                  <div className="mt-3 flex gap-2">
-                    <input
-                      type="color"
-                      value={color}
-                      onChange={(event) => setColor(event.target.value)}
-                      className="h-12 w-12 cursor-pointer rounded border-2 border-gray-300 dark:border-dark-tertiary"
-                    />
-                    <input
-                      type="text"
-                      value={color}
-                      onChange={(event) => setColor(event.target.value)}
-                      className="input-field flex-1"
-                      placeholder="#4ECDC4"
-                    />
-                  </div>
-                </div>
-
-                <div className="rounded-2xl border border-gray-200 bg-gray-50 p-4 dark:border-dark-tertiary dark:bg-dark-primary/30">
-                  <p className="mb-2 text-sm font-medium text-gray-600 dark:text-gray-300">Vista previa</p>
-                  <Tag tag={{ id: selectedTagId || 'preview', name: name || 'Nueva etiqueta', color, description }} />
-                </div>
-
-                <div className="flex gap-2">
-                  <button
-                    onClick={saveTag}
-                    className="flex-1 rounded-xl bg-green-500 px-4 py-3 text-sm font-medium text-white transition-colors hover:bg-green-600"
-                    disabled={!name.trim()}
-                  >
-                    <FiCheck className="inline-block" /> Guardar
-                  </button>
-                  <button
-                    onClick={() => {
-                      setIsCreatingNew(false);
-                      setSelectedTagId(null);
-                      setName('');
-                      setColor('#4ECDC4');
-                      setDescription('');
-                    }}
-                    className="rounded-xl bg-gray-200 px-4 py-3 text-sm font-medium text-gray-900 transition-colors hover:bg-gray-300 dark:bg-dark-tertiary dark:text-gray-100 dark:hover:bg-dark-secondary"
-                  >
-                    Limpiar
-                  </button>
-                </div>
-              </div>
-            </div>
+            <TagEditorForm
+              key={isCreatingNew ? 'new' : activeTag?.id ?? 'none'}
+              tag={isCreatingNew ? null : activeTag}
+              isCreatingNew={isCreatingNew}
+              selectedTagId={selectedTagId}
+              onSaved={() => {
+                setIsCreatingNew(false);
+                setSelectedTagId(null);
+              }}
+            />
 
             {pendingDeleteTagId && (() => {
               const tag = tags.find((item) => item.id === pendingDeleteTagId);

@@ -26,7 +26,7 @@ const TodoEditor: React.FC<TodoEditorProps> = ({ todoId, onClose }) => {
   const [editorSearchQuery, setEditorSearchQuery] = useState('');
 
   const existingTodo = todoId ? todos.find((t) => t.id === todoId) : null;
-  const [todo, setTodo] = useState<Todo>(
+  const [todo, setTodo] = useState<Todo>(() =>
     existingTodo || {
       id: generateId(),
       title: '',
@@ -42,20 +42,50 @@ const TodoEditor: React.FC<TodoEditorProps> = ({ todoId, onClose }) => {
 
   const [selectedTags, setSelectedTags] = useState<string[]>(todo.tags);
 
+  const todoRef = useRef(todo);
+  const selectedTagsRef = useRef(selectedTags);
+
+  useEffect(() => { todoRef.current = todo; }, [todo]);
+  useEffect(() => { selectedTagsRef.current = selectedTags; }, [selectedTags]);
+
   useEffect(() => {
     const snapshot = JSON.stringify({
-      title: todo.title,
-      description: todo.description,
-      folderId: todo.folderId,
-      tags: selectedTags,
-      completed: todo.completed,
-      completedAt: todo.completedAt ?? null,
+      title: todoRef.current.title,
+      description: todoRef.current.description,
+      folderId: todoRef.current.folderId,
+      tags: selectedTagsRef.current,
+      completed: todoRef.current.completed,
+      completedAt: todoRef.current.completedAt ?? null,
     });
-
     if (!initialSnapshotRef.current) {
       initialSnapshotRef.current = snapshot;
     }
   }, []);
+
+  useEffect(() => {
+    const timeout = window.setTimeout(() => {
+      if (isClosingRef.current) return;
+      const cur = todoRef.current;
+      const tagList = selectedTagsRef.current;
+      const snapshot = JSON.stringify({
+        title: cur.title,
+        description: cur.description,
+        folderId: cur.folderId,
+        tags: tagList,
+        completed: cur.completed,
+        completedAt: cur.completedAt ?? null,
+      });
+      if (snapshot === initialSnapshotRef.current) return;
+      const payload = { ...cur, tags: tagList, updatedAt: Date.now() };
+      if (todoId) {
+        updateTodo(todoId, payload);
+      } else {
+        addTodo(payload);
+      }
+      initialSnapshotRef.current = snapshot;
+    }, 300);
+    return () => window.clearTimeout(timeout);
+  }, [todo, selectedTags, todoId, updateTodo, addTodo]);
 
   const getCurrentSnapshot = (nextTodo: Todo, nextTags: string[]) =>
     JSON.stringify({
@@ -69,35 +99,15 @@ const TodoEditor: React.FC<TodoEditorProps> = ({ todoId, onClose }) => {
 
   const persistTodo = (nextTodo: Todo, nextTags: string[]) => {
     const snapshot = getCurrentSnapshot(nextTodo, nextTags);
-    if (snapshot === initialSnapshotRef.current) {
-      return;
-    }
-
-    const payload = {
-      ...nextTodo,
-      tags: nextTags,
-      updatedAt: Date.now(),
-    };
-
+    if (snapshot === initialSnapshotRef.current) return;
+    const payload = { ...nextTodo, tags: nextTags, updatedAt: Date.now() };
     if (todoId) {
       updateTodo(todoId, payload);
     } else {
       addTodo(payload);
-        initialSnapshotRef.current = snapshot;
     }
+    initialSnapshotRef.current = snapshot;
   };
-
-  useEffect(() => {
-    const timeout = window.setTimeout(() => {
-      if (isClosingRef.current) {
-        return;
-      }
-
-      persistTodo(todo, selectedTags);
-    }, 300);
-
-    return () => window.clearTimeout(timeout);
-  }, [todo, selectedTags, todoId, updateTodo, addTodo]);
 
   const toggleTag = (tagId: string) => {
     setSelectedTags((prev) =>

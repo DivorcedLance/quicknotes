@@ -72,7 +72,7 @@ const NotesView: React.FC = () => {
     });
 
     return grouped;
-  }, [scopedNotes, notes, sortBy]);
+  }, [scopedNotes, sortBy]);
 
   return (
     <div className="h-full overflow-auto p-6">

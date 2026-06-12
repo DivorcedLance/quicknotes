@@ -24,7 +24,7 @@ const NoteEditor: React.FC<NoteEditorProps> = ({ noteId, onClose }) => {
   const [editorSearchQuery, setEditorSearchQuery] = useState('');
 
   const existingNote = noteId ? notes.find((n) => n.id === noteId) : null;
-  const [note, setNote] = useState<Note>(
+  const [note, setNote] = useState<Note>(() =>
     existingNote || {
       id: noteId ?? generateId(),
       title: '',
@@ -39,19 +39,48 @@ const NoteEditor: React.FC<NoteEditorProps> = ({ noteId, onClose }) => {
 
   const [selectedTags, setSelectedTags] = useState<string[]>(note.tags);
 
+  const noteRef = useRef(note);
+  const selectedTagsRef = useRef(selectedTags);
+
+  useEffect(() => { noteRef.current = note; }, [note]);
+  useEffect(() => { selectedTagsRef.current = selectedTags; }, [selectedTags]);
+
   useEffect(() => {
     const snapshot = JSON.stringify({
-      title: note.title,
-      content: note.content,
-      folderId: note.folderId,
-      images: note.images,
-      tags: selectedTags,
+      title: noteRef.current.title,
+      content: noteRef.current.content,
+      folderId: noteRef.current.folderId,
+      images: noteRef.current.images,
+      tags: selectedTagsRef.current,
     });
-
     if (!initialSnapshotRef.current) {
       initialSnapshotRef.current = snapshot;
     }
   }, []);
+
+  useEffect(() => {
+    const timeout = window.setTimeout(() => {
+      if (isClosingRef.current) return;
+      const cur = noteRef.current;
+      const tagList = selectedTagsRef.current;
+      const snapshot = JSON.stringify({
+        title: cur.title,
+        content: cur.content,
+        folderId: cur.folderId,
+        images: cur.images,
+        tags: tagList,
+      });
+      if (snapshot === initialSnapshotRef.current) return;
+      const payload = { ...cur, tags: tagList, updatedAt: Date.now() };
+      if (noteId) {
+        updateNote(noteId, payload);
+      } else {
+        addNote(payload);
+      }
+      initialSnapshotRef.current = snapshot;
+    }, 300);
+    return () => window.clearTimeout(timeout);
+  }, [note, selectedTags, noteId, updateNote, addNote]);
 
   const getCurrentSnapshot = (nextNote: Note, nextTags: string[]) =>
     JSON.stringify({
@@ -64,36 +93,15 @@ const NoteEditor: React.FC<NoteEditorProps> = ({ noteId, onClose }) => {
 
   const persistNote = (nextNote: Note, nextTags: string[]) => {
     const snapshot = getCurrentSnapshot(nextNote, nextTags);
-    if (snapshot === initialSnapshotRef.current) {
-      return;
-    }
-
-    const payload = {
-      ...nextNote,
-      tags: nextTags,
-      updatedAt: Date.now(),
-    };
-
+    if (snapshot === initialSnapshotRef.current) return;
+    const payload = { ...nextNote, tags: nextTags, updatedAt: Date.now() };
     if (noteId) {
       updateNote(noteId, payload);
     } else {
       addNote(payload);
     }
-
     initialSnapshotRef.current = snapshot;
   };
-
-  useEffect(() => {
-    const timeout = window.setTimeout(() => {
-      if (isClosingRef.current) {
-        return;
-      }
-
-      persistNote(note, selectedTags);
-    }, 300);
-
-    return () => window.clearTimeout(timeout);
-  }, [note, selectedTags, noteId, updateNote, addNote]);
 
   const toggleTag = (tagId: string) => {
     setSelectedTags((prev) =>

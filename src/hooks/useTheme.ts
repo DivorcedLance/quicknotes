@@ -13,7 +13,7 @@ export const useTheme = () => {
     } else {
       htmlElement.classList.remove('dark');
     }
-  }, [settings.theme]);
+  }, [settings.theme, getTheme]);
 
   return { toggleTheme, getTheme, theme: settings.theme };
 };

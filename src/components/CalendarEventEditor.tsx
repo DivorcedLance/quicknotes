@@ -32,7 +32,7 @@ const CalendarEventEditor: React.FC<CalendarEventEditorProps> = ({ eventId, onCl
   const initialSnapshotRef = useRef<string>('');
 
   const existingEvent = eventId ? events.find((e) => e.id === eventId) : null;
-  const [event, setEvent] = useState<CalendarEvent>(
+  const [event, setEvent] = useState<CalendarEvent>(() =>
     existingEvent || {
       id: generateId(),
       title: '',
@@ -56,55 +56,51 @@ const CalendarEventEditor: React.FC<CalendarEventEditorProps> = ({ eventId, onCl
   const [endDateStr, setEndDateStr] = useState(event.endDate ? formatDateInput(event.endDate) : '');
   const [endTimeStr, setEndTimeStr] = useState(event.endDate ? formatTimeInput(event.endDate) : '');
 
+  const eventRef = useRef(event);
+  useEffect(() => { eventRef.current = event; }, [event]);
+
   useEffect(() => {
     const snapshot = JSON.stringify({
-      title: event.title,
-      description: event.description,
-      startDate: event.startDate,
-      endDate: event.endDate,
-      allDay: event.allDay,
-      color: event.color,
-      notify: event.notify,
-      notifyBefore: event.notifyBefore,
-      recurrence: event.recurrence,
+      title: eventRef.current.title,
+      description: eventRef.current.description,
+      startDate: eventRef.current.startDate,
+      endDate: eventRef.current.endDate,
+      allDay: eventRef.current.allDay,
+      color: eventRef.current.color,
+      notify: eventRef.current.notify,
+      notifyBefore: eventRef.current.notifyBefore,
+      recurrence: eventRef.current.recurrence,
     });
     if (!initialSnapshotRef.current) {
       initialSnapshotRef.current = snapshot;
     }
   }, []);
 
-  const getCurrentSnapshot = () =>
-    JSON.stringify({
-      title: event.title,
-      description: event.description,
-      startDate: event.startDate,
-      endDate: event.endDate,
-      allDay: event.allDay,
-      color: event.color,
-      notify: event.notify,
-      notifyBefore: event.notifyBefore,
-      recurrence: event.recurrence,
-    });
-
-  const persistEvent = () => {
-    const snapshot = getCurrentSnapshot();
-    if (snapshot === initialSnapshotRef.current) return;
-
-    if (eventId) {
-      updateEvent(eventId, event);
-    } else {
-      addEvent(event);
-    }
-    initialSnapshotRef.current = snapshot;
-  };
-
   useEffect(() => {
     const timeout = window.setTimeout(() => {
       if (isClosingRef.current) return;
-      persistEvent();
+      const cur = eventRef.current;
+      const snapshot = JSON.stringify({
+        title: cur.title,
+        description: cur.description,
+        startDate: cur.startDate,
+        endDate: cur.endDate,
+        allDay: cur.allDay,
+        color: cur.color,
+        notify: cur.notify,
+        notifyBefore: cur.notifyBefore,
+        recurrence: cur.recurrence,
+      });
+      if (snapshot === initialSnapshotRef.current) return;
+      if (eventId) {
+        updateEvent(eventId, cur);
+      } else {
+        addEvent(cur);
+      }
+      initialSnapshotRef.current = snapshot;
     }, 300);
     return () => window.clearTimeout(timeout);
-  }, [event]);
+  }, [event, eventId, addEvent, updateEvent]);
 
   const updateDates = (startDate: string, startTime: string, endDate: string, endTime: string) => {
     const start = new Date(`${startDate}T${startTime}`).getTime();

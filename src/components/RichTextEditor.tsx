@@ -22,12 +22,40 @@ interface RichTextEditorProps {
   onChange: (value: string) => void;
   placeholder?: string;
   className?: string;
+  minHeight?: string;
 }
 
 export interface RichTextEditorHandle {
   search: (query: string) => boolean;
   getHtml: () => string;
 }
+
+const ToolbarButton = ({
+  icon,
+  label,
+  onClick,
+  active = false,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  onClick: () => void;
+  active?: boolean;
+}) => (
+  <button
+    type="button"
+    onMouseDown={(event) => event.preventDefault()}
+    onClick={onClick}
+    title={label}
+    aria-label={label}
+    className={`inline-flex h-10 w-10 items-center justify-center rounded-lg border transition-colors ${
+      active
+        ? 'border-blue-500 bg-blue-50 text-blue-700 dark:bg-blue-950 dark:text-blue-200'
+        : 'border-gray-200 bg-white hover:bg-gray-50 dark:border-dark-tertiary dark:bg-dark-secondary dark:hover:bg-dark-tertiary'
+    }`}
+  >
+    {icon}
+  </button>
+);
 
 const allowedImageWidth = {
   min: 120,
@@ -40,11 +68,13 @@ const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorProps>(({
   onChange,
   placeholder = 'Empieza a escribir...',
   className = '',
+  minHeight = '420px',
 }, ref) => {
   const editorRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const savedRangeRef = useRef<Range | null>(null);
-  const [selectedImage, setSelectedImage] = useState<HTMLImageElement | null>(null);
+  const selectedImageRef = useRef<HTMLImageElement | null>(null);
+  const [isImageSelected, setIsImageSelected] = useState(false);
   const [selectedImageWidth, setSelectedImageWidth] = useState(allowedImageWidth.default);
   const lastSearchStateRef = useRef<{ query: string; index: number }>({ query: '', index: 0 });
 
@@ -233,35 +263,40 @@ const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorProps>(({
     const target = event.target as HTMLElement;
     if (target.tagName === 'IMG') {
       const imageElement = target as HTMLImageElement;
-      setSelectedImage(imageElement);
+      selectedImageRef.current = imageElement;
+      setIsImageSelected(true);
       setSelectedImageWidth(
         Number.parseInt(imageElement.style.width || '', 10) || allowedImageWidth.default
       );
       return;
     }
 
-    setSelectedImage(null);
+    selectedImageRef.current = null;
+    setIsImageSelected(false);
   };
 
   const updateSelectedImageWidth = (width: number) => {
-    if (!selectedImage) {
+    const img = selectedImageRef.current;
+    if (!img) {
       return;
     }
 
     const nextWidth = Math.max(allowedImageWidth.min, Math.min(allowedImageWidth.max, width));
-    selectedImage.style.width = `${nextWidth}px`;
-    selectedImage.style.maxWidth = '100%';
+    img.style.width = `${nextWidth}px`;
+    img.style.maxWidth = '100%';
     setSelectedImageWidth(nextWidth);
     commitChange();
   };
 
   const deleteSelectedImage = () => {
-    if (!selectedImage) {
+    const img = selectedImageRef.current;
+    if (!img) {
       return;
     }
 
-    selectedImage.remove();
-    setSelectedImage(null);
+    img.remove();
+    selectedImageRef.current = null;
+    setIsImageSelected(false);
     setSelectedImageWidth(allowedImageWidth.default);
     commitChange();
   };
@@ -294,29 +329,29 @@ const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorProps>(({
   };
 
   const rotateSelectedImage = async () => {
-    if (!selectedImage) {
+    const img = selectedImageRef.current;
+    if (!img) {
       return;
     }
 
-    const source = selectedImage.getAttribute('src');
+    const source = img.getAttribute('src');
     if (!source) {
       return;
     }
 
     try {
       const rotatedSource = await rotateSource90(source);
-      selectedImage.setAttribute('src', rotatedSource);
-      selectedImage.style.transform = '';
-      selectedImage.style.transformOrigin = '';
-      selectedImage.dataset.qnRotation = '0';
+      img.setAttribute('src', rotatedSource);
+      img.style.transform = '';
+      img.style.transformOrigin = '';
+      img.dataset.qnRotation = '0';
       commitChange();
     } catch {
-      // Fallback para no bloquear la acción si falla canvas (por ejemplo, restricciones CORS).
-      const currentRotation = Number.parseInt(selectedImage.dataset.qnRotation || '0', 10) || 0;
+      const currentRotation = Number.parseInt(img.dataset.qnRotation || '0', 10) || 0;
       const nextRotation = (currentRotation + 90) % 360;
-      selectedImage.dataset.qnRotation = String(nextRotation);
-      selectedImage.style.transform = `rotate(${nextRotation}deg)`;
-      selectedImage.style.transformOrigin = 'center center';
+      img.dataset.qnRotation = String(nextRotation);
+      img.style.transform = `rotate(${nextRotation}deg)`;
+      img.style.transformOrigin = 'center center';
       commitChange();
     }
   };
@@ -335,33 +370,6 @@ const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorProps>(({
     insertImageElement(base64, file.name);
     event.target.value = '';
   };
-
-  const ToolbarButton = ({
-    icon,
-    label,
-    onClick,
-    active = false,
-  }: {
-    icon: React.ReactNode;
-    label: string;
-    onClick: () => void;
-    active?: boolean;
-  }) => (
-    <button
-      type="button"
-      onMouseDown={(event) => event.preventDefault()}
-      onClick={onClick}
-      title={label}
-      aria-label={label}
-      className={`inline-flex h-10 w-10 items-center justify-center rounded-lg border transition-colors ${
-        active
-          ? 'border-blue-500 bg-blue-50 text-blue-700 dark:bg-blue-950 dark:text-blue-200'
-          : 'border-gray-200 bg-white hover:bg-gray-50 dark:border-dark-tertiary dark:bg-dark-secondary dark:hover:bg-dark-tertiary'
-      }`}
-    >
-      {icon}
-    </button>
-  );
 
   const search = (query: string) => {
     const normalizedQuery = query.trim();
@@ -403,7 +411,7 @@ const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorProps>(({
         <ToolbarButton icon={<FiX size={15} />} label="Limpiar formato" onClick={() => applyCommand('removeFormat')} />
       </div>
 
-      {selectedImage && (
+      {isImageSelected && (
         <div className="flex flex-wrap items-center gap-2 border-b border-gray-200 bg-gray-50 px-3 py-2 text-sm dark:border-dark-tertiary dark:bg-dark-tertiary/60">
           <span className="font-medium text-gray-600 dark:text-gray-300">Imagen</span>
           <label className="flex items-center gap-2">
@@ -446,7 +454,7 @@ const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorProps>(({
           <button
             type="button"
             onMouseDown={(event) => event.preventDefault()}
-            onClick={() => setSelectedImage(null)}
+            onClick={() => setIsImageSelected(false)}
             className="rounded-lg border border-gray-200 px-3 py-1 hover:bg-white dark:border-dark-tertiary dark:hover:bg-dark-secondary"
           >
             Cerrar
@@ -479,8 +487,8 @@ const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorProps>(({
             }
           }}
           onClick={handleEditorClick}
-          className="min-h-[420px] rounded-b-2xl px-4 py-4 text-base leading-7 outline-none dark:text-gray-100"
-          style={{ whiteSpace: 'pre-wrap' }}
+          className="rounded-b-2xl px-4 py-4 text-base leading-7 outline-none dark:text-gray-100"
+          style={{ whiteSpace: 'pre-wrap', minHeight }}
         />
       </div>
 

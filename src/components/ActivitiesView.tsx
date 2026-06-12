@@ -1,12 +1,15 @@
 import React, { useState, useRef } from 'react';
-import { FiGrid, FiBarChart2, FiLayers, FiEdit3, FiCheckCircle, FiPlus, FiX, FiSettings } from 'react-icons/fi';
+import { FiGrid, FiBarChart2, FiLayers, FiEdit3, FiCheckCircle, FiPlus, FiX, FiSettings, FiEye, FiEyeOff, FiList } from 'react-icons/fi';
 import { createPortal } from 'react-dom';
 import { useActivitiesStore } from '../stores/activitiesStore';
+import { useSettingsStore } from '../stores/settingsStore';
 import type { ActivityStatus, ActivityDefinition, ActivityInstance } from '../types';
 import { ACTIVITY_STATUSES, ACTIVITY_STATUS_LABELS, ACTIVITY_STATUS_COLORS } from '../types';
 import ActivityCalendarView from './ActivityCalendarView';
 import type { ActivityContextMenuState } from './ActivityCalendarView';
 import ActivityDashboard from './ActivityDashboard';
+import ActivityTimelineView from './ActivityTimelineView';
+import ActivityPeriodDetail from './ActivityPeriodDetail';
 import ActivityTypeManager from './ActivityTypeManager';
 import RichTextEditor, { type RichTextEditorHandle } from './RichTextEditor';
 import ColorPicker from './ColorPicker';
@@ -98,7 +101,7 @@ const DefinitionModal: React.FC<{
           <div>
             <label className="mb-1 block text-xs text-gray-500">Descripción</label>
             <RichTextEditor ref={descRef} value={description} onChange={setDescription}
-              placeholder="Describe la actividad..." className="!shadow-none" />
+              placeholder="Describe la actividad..." className="!shadow-none" minHeight="120px" />
           </div>
           <div>
             <label className="mb-1 block text-xs text-gray-500">Frecuencia (opcional)</label>
@@ -155,12 +158,12 @@ const InstanceModal: React.FC<{
           </div>
           <div>
             <label className="mb-1 block text-xs text-gray-500">Título secundario</label>
-            <input value={secTitle} onChange={(e) => setSecTitle(e.target.value)} className="input-field w-full text-sm" />
+            <input value={secTitle} onChange={(e) => setSecTitle(e.target.value)} className="input-field w-full text-sm" autoFocus />
           </div>
           <div>
               <label className="mb-1 block text-xs text-gray-500">Descripción</label>
               <RichTextEditor ref={descRef} value={description} onChange={setDescription}
-                placeholder="Descripción de la actividad..." className="!shadow-none" />
+                placeholder="Descripción de la actividad..." className="!shadow-none" minHeight="120px" />
           </div>
           <div className="flex gap-2">
             <div className="flex-1">
@@ -195,9 +198,10 @@ const EditInstanceModal: React.FC<{
   instance: ActivityInstance;
   definitions: ActivityDefinition[];
   types: { id: string; name: string; color: string }[];
+  instances: ActivityInstance[];
   onClose: () => void;
   onSave: (id: string, data: Partial<ActivityInstance>) => void;
-}> = ({ instance, definitions, types, onClose, onSave }) => {
+}> = ({ instance, definitions, types, instances, onClose, onSave }) => {
   const descRef = useRef<RichTextEditorHandle>(null);
   const [secTitle, setSecTitle] = useState(instance.secondaryTitle);
   const [description, setDescription] = useState(instance.description);
@@ -233,7 +237,7 @@ const EditInstanceModal: React.FC<{
           <div>
             <label className="mb-1 block text-xs text-gray-500">Descripción</label>
             <RichTextEditor ref={descRef} value={description} onChange={setDescription}
-              placeholder="Descripción..." className="!shadow-none" />
+              placeholder="Descripción..." className="!shadow-none" minHeight="120px" />
           </div>
           <div>
             <label className="mb-1 block text-xs text-gray-500">Estado</label>
@@ -252,9 +256,11 @@ const EditInstanceModal: React.FC<{
               Historial de aplazamientos: {instance.postponedHistory.length} vez{instance.postponedHistory.length !== 1 ? 'es' : ''}
             </div>
           )}
-          {instance.postponedFrom && (
-            <div className="text-xs text-gray-500">Aplazada desde: {instance.postponedFrom.slice(0, 8)}</div>
-          )}
+          {instance.postponedFrom && (() => {
+            const src = instances.find((i) => i.id === instance.postponedFrom);
+            const srcDef = src ? definitions.find((d) => d.id === src.definitionId) : null;
+            return <div className="text-xs text-gray-500">Aplazada desde: {srcDef?.shortName ?? '?'}{src?.secondaryTitle ? ` — ${src.secondaryTitle}` : ''}</div>;
+          })()}
         </div>
         <div className="mt-4 flex justify-end gap-2">
           <button onClick={onClose} className="rounded-lg border px-3 py-2 text-sm hover:bg-gray-100 dark:border-dark-tertiary dark:hover:bg-dark-tertiary">Cancelar</button>
@@ -265,17 +271,124 @@ const EditInstanceModal: React.FC<{
   );
 };
 
+/* ─── View Instance (read-only) modal ─── */
+const ViewInstanceModal: React.FC<{
+  instance: ActivityInstance;
+  definitions: ActivityDefinition[];
+  types: { id: string; name: string; color: string }[];
+  instances: ActivityInstance[];
+  onClose: () => void;
+}> = ({ instance, definitions, types, instances, onClose }) => {
+  const def = definitions.find((d) => d.id === instance.definitionId);
+  const t = def ? types.find((tp) => tp.id === def.typeId) : null;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={onClose}>
+      <div className="mx-4 w-full max-w-xl max-h-[90vh] overflow-y-auto rounded-xl bg-white p-6 shadow-2xl dark:bg-dark-secondary" onClick={(e) => e.stopPropagation()}>
+        <h3 className="mb-4 text-lg font-semibold">Detalles de Actividad</h3>
+        <div className="mb-3 rounded-lg border p-3 dark:border-dark-tertiary">
+          <div className="flex items-center gap-3 text-sm">
+            <span className="h-3 w-3 rounded-full" style={{ backgroundColor: def?.color ?? '#666' }} />
+            <span className="font-medium">{def?.shortName}</span>
+            <span className="text-gray-500">—</span>
+            <span>{def?.title}</span>
+            {t && <span className="rounded bg-gray-200 px-1.5 py-0.5 text-[10px] dark:bg-dark-tertiary">{t.name}</span>}
+          </div>
+        </div>
+        <div className="space-y-3">
+          <div className="flex items-center gap-2">
+            <span className="inline-block rounded px-2 py-0.5 text-xs font-medium text-white"
+              style={{ backgroundColor: ACTIVITY_STATUS_COLORS[instance.status] }}>
+              {ACTIVITY_STATUS_LABELS[instance.status]}
+            </span>
+          </div>
+          {instance.secondaryTitle && (
+            <div>
+              <label className="mb-1 block text-xs text-gray-500">Título secundario</label>
+              <p className="text-sm">{instance.secondaryTitle}</p>
+            </div>
+          )}
+          <div>
+            <label className="mb-1 block text-xs text-gray-500">Descripción</label>
+            {instance.description ? (
+              <div className="prose prose-sm max-w-none dark:prose-invert rounded-lg border p-3 dark:border-dark-tertiary text-sm"
+                dangerouslySetInnerHTML={{ __html: instance.description }} />
+            ) : (
+              <p className="text-sm text-gray-400 italic">Sin descripción</p>
+            )}
+          </div>
+          <div>
+            <label className="mb-1 block text-xs text-gray-500">Fecha</label>
+            <p className="text-sm">Año {instance.year}, Mes {instance.month + 1}, Semana {instance.weekOfMonth}</p>
+          </div>
+          {instance.postponedFrom && (() => {
+            const src = instances.find((i) => i.id === instance.postponedFrom);
+            const srcDef = src ? definitions.find((d) => d.id === src.definitionId) : null;
+            return <div className="text-xs text-gray-500">Aplazada desde: {srcDef?.shortName ?? '?'}{src?.secondaryTitle ? ` — ${src.secondaryTitle}` : ''}</div>;
+          })()}
+          {instance.postponedHistory && instance.postponedHistory.length > 0 && (
+            <div className="text-xs text-gray-500">
+              Historial de aplazamientos: {instance.postponedHistory.length} vez{instance.postponedHistory.length !== 1 ? 'es' : ''}
+            </div>
+          )}
+        </div>
+        <div className="mt-4 flex justify-end gap-2">
+          <button onClick={onClose} className="rounded-lg border px-3 py-2 text-sm hover:bg-gray-100 dark:border-dark-tertiary dark:hover:bg-dark-tertiary">Cerrar</button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+/* ─── Confirm Delete Modal ─── */
+const ConfirmDeleteModal: React.FC<{
+  instance: ActivityInstance;
+  successors: ActivityInstance[];
+  definitions: ActivityDefinition[];
+  onClose: () => void;
+  onDeleteSelf: () => void;
+  onDeleteAll: () => void;
+}> = ({ instance: _instance, successors, definitions, onClose, onDeleteSelf, onDeleteAll }) => {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={onClose}>
+      <div className="mx-4 w-full max-w-lg rounded-xl bg-white p-6 shadow-2xl dark:bg-dark-secondary" onClick={(e) => e.stopPropagation()}>
+        <h3 className="mb-3 text-lg font-semibold text-red-600">Eliminar actividad</h3>
+        <p className="mb-2 text-sm text-gray-600 dark:text-gray-400">
+          Esta actividad tiene <strong>{successors.length}</strong> actividad{successors.length !== 1 ? 'es' : ''} que le sucede{successors.length !== 1 ? 'n' : ''}:
+        </p>
+        <ul className="mb-4 space-y-1 text-sm">
+          {successors.map((s) => {
+            const sd = definitions.find((d) => d.id === s.definitionId);
+            return (
+              <li key={s.id} className="flex items-center gap-2 rounded border p-2 dark:border-dark-tertiary">
+                <span className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: sd?.color ?? '#666' }} />
+                <span className="font-medium">{sd?.shortName}</span>
+                {s.secondaryTitle && <span className="text-gray-500">— {s.secondaryTitle}</span>}
+              </li>
+            );
+          })}
+        </ul>
+        <p className="mb-4 text-xs text-gray-500">¿Qué deseas hacer?</p>
+        <div className="flex justify-end gap-2">
+          <button onClick={onClose} className="rounded-lg border px-3 py-2 text-sm hover:bg-gray-100 dark:border-dark-tertiary dark:hover:bg-dark-tertiary">Cancelar</button>
+          <button onClick={onDeleteSelf} className="rounded-lg border border-red-200 px-3 py-2 text-sm text-red-600 hover:bg-red-50 dark:border-red-900 dark:text-red-400">Eliminar solo esta</button>
+          <button onClick={onDeleteAll} className="rounded-lg bg-red-500 px-3 py-2 text-sm text-white hover:bg-red-600">Eliminar también sucesoras</button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 /* ─── Context menu portal ─── */
 const ContextMenu: React.FC<{
   menu: ActivityContextMenuState | null;
-  mode: 'planning' | 'status';
   onClose: () => void;
   onNewInstance: (m: ActivityContextMenuState) => void;
   onEditInstance: (id: string) => void;
   onDeleteInstance: (id: string) => void;
   onPostpone: (id: string) => void;
   onChangeStatus: (id: string, status: ActivityStatus) => void;
-}> = ({ menu, mode, onClose, onNewInstance, onEditInstance, onDeleteInstance, onPostpone, onChangeStatus }) => {
+}> = ({ menu, onClose, onNewInstance, onEditInstance, onDeleteInstance, onPostpone, onChangeStatus }) => {
   if (!menu) return null;
   return createPortal(
     <div className="fixed inset-0 z-[60]" onClick={onClose} onContextMenu={(e) => e.preventDefault()}>
@@ -288,12 +401,10 @@ const ContextMenu: React.FC<{
           </button>
         ) : (
           <>
-            {mode === 'planning' ? (
-              <button onClick={() => { onEditInstance(menu.instanceId!); onClose(); }}
-                className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-gray-100 dark:hover:bg-dark-tertiary">
-                <FiEdit3 size={14} /> Editar detalles
-              </button>
-            ) : null}
+            <button onClick={() => { onEditInstance(menu.instanceId!); onClose(); }}
+              className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-gray-100 dark:hover:bg-dark-tertiary">
+              <FiEdit3 size={14} /> Editar detalles
+            </button>
             <div className="border-t border-gray-200 dark:border-dark-tertiary my-1" />
             {ACTIVITY_STATUSES.map((s) => (
               <button key={s} onClick={() => { onChangeStatus(menu.instanceId!, s); onClose(); }}
@@ -322,18 +433,24 @@ const ContextMenu: React.FC<{
 /* ─── Main Activities View ─── */
 const ActivitiesView: React.FC = () => {
   const { types, definitions, instances, addInstance, updateInstance, deleteInstance, postponeInstance } = useActivitiesStore();
-  const [view, setView] = useState<'calendar' | 'dashboard' | 'types'>('calendar');
+  const { settings, updateSettings } = useSettingsStore();
+  const hoverView = settings.activityHoverView ?? 'compact';
+  const [view, setView] = useState<'calendar' | 'dashboard' | 'types' | 'timeline'>('calendar');
   const [mode, setMode] = useState<'planning' | 'status'>('planning');
   const [showDefModal, setShowDefModal] = useState(false);
   const [editDef, setEditDef] = useState<ActivityDefinition | undefined>(undefined);
   const [showInstModal, setShowInstModal] = useState(false);
   const [instModalDefaults, setInstModalDefaults] = useState({ year: 2025, month: 0, week: 1 });
   const [editInstanceId, setEditInstanceId] = useState<string | null>(null);
+  const [viewInstanceId, setViewInstanceId] = useState<string | null>(null);
   const [showTypeManager, setShowTypeManager] = useState(false);
   const [contextMenu, setContextMenu] = useState<ActivityContextMenuState | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState<{ instance: ActivityInstance; successors: ActivityInstance[] } | null>(null);
+  const [detailView, setDetailView] = useState<{ year: number; month?: number } | null>(null);
   const scrollToTodayRef = useRef<(() => void) | null>(null);
 
   const editInstance = editInstanceId ? instances.find((i) => i.id === editInstanceId) ?? null : null;
+  const viewInstance = viewInstanceId ? instances.find((i) => i.id === viewInstanceId) ?? null : null;
 
   const handleNewInstance = (defId: string, secTitle: string, desc: string, _images: ImageData[], y: number, m: number, w: number) => {
     const firstDay = new Date(y, m, 1).getDay();
@@ -381,11 +498,45 @@ const ActivitiesView: React.FC = () => {
     updateInstance(id, { status });
   };
 
+  const handleDeleteRequest = (id: string) => {
+    const inst = instances.find((i) => i.id === id);
+    if (!inst) { deleteInstance(id); return; }
+    const successors = instances.filter((i) => i.postponedFrom === id);
+    if (successors.length > 0) {
+      setConfirmDelete({ instance: inst, successors });
+    } else {
+      deleteInstance(id);
+      setContextMenu(null);
+    }
+  };
+
+  const handleConfirmDeleteSelf = () => {
+    if (!confirmDelete) return;
+    deleteInstance(confirmDelete.instance.id);
+    setConfirmDelete(null);
+    setContextMenu(null);
+  };
+
+  const handleConfirmDeleteAll = () => {
+    if (!confirmDelete) return;
+    deleteInstance(confirmDelete.instance.id);
+    for (const s of confirmDelete.successors) {
+      deleteInstance(s.id);
+    }
+    setConfirmDelete(null);
+    setContextMenu(null);
+  };
+
   // In planning mode, clicking instance opens the editor
   const handleEditRequest = (id: string) => {
     if (mode === 'planning') {
       setEditInstanceId(id);
     }
+  };
+
+  // In status mode, clicking instance opens the read-only view
+  const handleViewRequest = (id: string) => {
+    setViewInstanceId(id);
   };
 
   // Clicking a cell opens the create-instance modal
@@ -396,7 +547,15 @@ const ActivitiesView: React.FC = () => {
     }
   };
 
-  return (
+  return detailView ? (
+    <ActivityPeriodDetail
+      year={detailView.year}
+      month={detailView.month}
+      instances={instances}
+      definitions={definitions}
+      onBack={() => setDetailView(null)}
+    />
+  ) : (
     <div className="flex h-full flex-col" style={{ fontSize: 14 }}>
       {/* Toolbar */}
       <div className="sticky top-0 z-30 flex items-center gap-2 border-b bg-white/95 backdrop-blur p-3 dark:border-dark-tertiary dark:bg-dark-secondary/95">
@@ -417,6 +576,10 @@ const ActivitiesView: React.FC = () => {
           className={`flex items-center gap-1 rounded px-2 py-1.5 text-xs font-medium ${view === 'dashboard' ? 'bg-blue-500 text-white' : 'hover:bg-gray-200 dark:hover:bg-dark-tertiary'}`}>
           <FiBarChart2 /> Dashboard
         </button>
+        <button onClick={() => setView('timeline')}
+          className={`flex items-center gap-1 rounded px-2 py-1.5 text-xs font-medium ${view === 'timeline' ? 'bg-blue-500 text-white' : 'hover:bg-gray-200 dark:hover:bg-dark-tertiary'}`}>
+          <FiList /> Línea
+        </button>
         <button onClick={() => setView('types')}
           className={`flex items-center gap-1 rounded px-2 py-1.5 text-xs font-medium ${view === 'types' ? 'bg-blue-500 text-white' : 'hover:bg-gray-200 dark:hover:bg-dark-tertiary'}`}>
           <FiLayers /> Definiciones
@@ -432,6 +595,14 @@ const ActivitiesView: React.FC = () => {
           className={`flex items-center gap-1 rounded px-2 py-1.5 text-xs font-medium ${mode === 'status' ? 'bg-amber-500 text-white' : 'hover:bg-gray-200 dark:hover:bg-dark-tertiary'}`}>
           <FiCheckCircle /> Estado
         </button>
+
+        {view === 'calendar' && (
+          <button onClick={() => updateSettings({ activityHoverView: hoverView === 'compact' ? 'detailed' : 'compact' })}
+            className={`flex items-center gap-1 rounded px-2 py-1.5 text-xs font-medium ${hoverView === 'detailed' ? 'bg-purple-500 text-white' : 'hover:bg-gray-200 dark:hover:bg-dark-tertiary'}`}
+            title={hoverView === 'compact' ? 'Vista previa detallada' : 'Vista previa compacta'}>
+            {hoverView === 'detailed' ? <FiEye size={14} /> : <FiEyeOff size={14} />}
+          </button>
+        )}
 
         <div className="flex-1" />
 
@@ -476,7 +647,7 @@ const ActivitiesView: React.FC = () => {
                       </div>
                       {d.recurrence && (
                         <div className="text-[10px] text-blue-500 mt-0.5">
-                          Cada {d.recurrence.interval} {d.recurrence.frequency === 'daily' ? 'día(s)' : d.recurrence.frequency === 'weekly' ? 'semana(s)' : d.recurrence.frequency === 'monthly' ? 'mes(es)' : 'año(s)'}
+                          Cada {d.recurrence.interval} {d.recurrence.frequency === 'weekly' ? 'semana(s)' : d.recurrence.frequency === 'monthly' ? 'mes(es)' : 'año(s)'}
                         </div>
                       )}
                     </div>
@@ -492,12 +663,19 @@ const ActivitiesView: React.FC = () => {
           <ActivityCalendarView mode={mode}
             onContextMenu={handleCellContextMenu}
             onEditInstance={handleEditRequest}
-            onChangeStatus={handleChangeStatus}
+            onViewInstance={handleViewRequest}
             onCellClick={handleCellClick}
             scrollToTodayRef={scrollToTodayRef}
+            hoverView={hoverView}
           />
         )}
         {view === 'dashboard' && <ActivityDashboard />}
+        {view === 'timeline' && (
+          <ActivityTimelineView
+            onViewMonth={(y, m) => setDetailView({ year: y, month: m })}
+            onViewYear={(y) => setDetailView({ year: y })}
+          />
+        )}
       </div>
 
       {/* Modals */}
@@ -511,16 +689,29 @@ const ActivitiesView: React.FC = () => {
         />
       )}
       {editInstance && (
-        <EditInstanceModal instance={editInstance} definitions={definitions} types={types}
+        <EditInstanceModal instance={editInstance} definitions={definitions} types={types} instances={instances}
           onClose={() => setEditInstanceId(null)}
           onSave={handleEditInstanceSave}
         />
       )}
+      {viewInstance && (
+        <ViewInstanceModal instance={viewInstance} definitions={definitions} types={types} instances={instances}
+          onClose={() => setViewInstanceId(null)}
+        />
+      )}
       {showTypeManager && <ActivityTypeManager onClose={() => setShowTypeManager(false)} />}
-      <ContextMenu menu={contextMenu} mode={mode} onClose={() => setContextMenu(null)}
+      {confirmDelete && (
+        <ConfirmDeleteModal
+          instance={confirmDelete.instance} successors={confirmDelete.successors} definitions={definitions}
+          onClose={() => setConfirmDelete(null)}
+          onDeleteSelf={handleConfirmDeleteSelf}
+          onDeleteAll={handleConfirmDeleteAll}
+        />
+      )}
+      <ContextMenu menu={contextMenu} onClose={() => setContextMenu(null)}
         onNewInstance={(m) => { setInstModalDefaults({ year: m.year, month: m.month, week: m.week }); setShowInstModal(true); }}
         onEditInstance={(id) => setEditInstanceId(id)}
-        onDeleteInstance={deleteInstance}
+        onDeleteInstance={handleDeleteRequest}
         onPostpone={(id) => { handlePostpone(id); setContextMenu(null); }}
         onChangeStatus={handleChangeStatus}
       />

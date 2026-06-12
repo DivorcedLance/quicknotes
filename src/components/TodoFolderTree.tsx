@@ -90,6 +90,7 @@ const TodoFolderTree: React.FC<TodoFolderTreeProps> = ({ parentId, depth = 0, se
     const foldersToExpand = foldersInThisLevel.filter((folderId) => folderPath.includes(folderId));
 
     if (foldersToExpand.length > 0) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setExpanded((prev) => {
         const nextExpanded = { ...prev };
         foldersToExpand.forEach((folderId) => {

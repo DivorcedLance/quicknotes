@@ -9,6 +9,7 @@ import { useSettingsStore } from '../stores/settingsStore';
 import { useAppStore } from '../stores/appStore';
 import { useDatabaseStore } from '../stores/databaseStore';
 import { downloadJson, readFileAsText } from '../utils/helpers';
+import type { DateTimeFormat } from '../utils/helpers';
 
 type BeforeInstallPromptEvent = Event & {
   prompt: () => Promise<void>;
@@ -26,7 +27,11 @@ const SettingsView: React.FC = () => {
   const [showReset, setShowReset] = useState(false);
   const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
   const [canInstall, setCanInstall] = useState(false);
-  const [isInstalled, setIsInstalled] = useState(false);
+  const [isInstalled, setIsInstalled] = useState(() => {
+    if (typeof window === 'undefined') return false;
+    const navigatorWithStandalone = navigator as Navigator & { standalone?: boolean };
+    return window.matchMedia('(display-mode: standalone)').matches || navigatorWithStandalone.standalone === true;
+  });
 
   const getInstallInstructions = () => {
     const ua = navigator.userAgent.toLowerCase();
@@ -50,14 +55,6 @@ const SettingsView: React.FC = () => {
   };
 
   useEffect(() => {
-    const navigatorWithStandalone = navigator as Navigator & {
-      standalone?: boolean;
-    };
-    const isStandalone =
-      window.matchMedia('(display-mode: standalone)').matches ||
-      navigatorWithStandalone.standalone === true;
-    setIsInstalled(isStandalone);
-
     const handleBeforeInstallPrompt = (event: Event) => {
       event.preventDefault();
       setDeferredPrompt(event as BeforeInstallPromptEvent);
@@ -217,7 +214,7 @@ const SettingsView: React.FC = () => {
               <span className="block text-sm font-medium mb-2">Formato de fechas</span>
               <select
                 value={dateTimeFormat}
-                onChange={(e) => setDateTimeFormat(e.target.value as any)}
+                onChange={(e) => setDateTimeFormat(e.target.value as DateTimeFormat)}
                 className="input-field"
               >
                 <option value="completo">Formato completo (7 de mayo de 2026 14:30)</option>

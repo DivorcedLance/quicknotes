@@ -14,7 +14,7 @@ const RecurrenceEditor: React.FC<RecurrenceEditorProps> = ({ value, onChange }) 
           type="button"
           onClick={() =>
             onChange({
-              frequency: 'daily',
+              frequency: 'weekly',
               interval: 1,
               indefinite: true,
             })
@@ -29,15 +29,6 @@ const RecurrenceEditor: React.FC<RecurrenceEditorProps> = ({ value, onChange }) 
 
   const update = (partial: Partial<RecurrenceRule>) => {
     onChange({ ...value, ...partial });
-  };
-
-  const dayNames = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
-  const daysOfWeek = value.byDay ?? [];
-  const toggleDay = (d: number) => {
-    const next = daysOfWeek.includes(d)
-      ? daysOfWeek.filter((x) => x !== d)
-      : [...daysOfWeek, d].sort();
-    update({ byDay: next });
   };
 
   return (
@@ -68,72 +59,11 @@ const RecurrenceEditor: React.FC<RecurrenceEditorProps> = ({ value, onChange }) 
           onChange={(e) => update({ frequency: e.target.value as RecurrenceRule['frequency'] })}
           className="rounded border border-gray-300 px-2 py-1 text-sm dark:border-dark-tertiary dark:bg-dark-tertiary"
         >
-          <option value="daily">día(s)</option>
           <option value="weekly">semana(s)</option>
           <option value="monthly">mes(es)</option>
           <option value="yearly">año(s)</option>
         </select>
       </div>
-
-      {value.frequency === 'weekly' && (
-        <div>
-          <span className="text-xs text-gray-500">Repetir los días:</span>
-          <div className="mt-1 flex gap-1">
-            {dayNames.map((name, i) => (
-              <button
-                key={i}
-                type="button"
-                onClick={() => toggleDay(i)}
-                className={`h-8 w-8 rounded-full text-xs font-medium transition-colors ${
-                  daysOfWeek.includes(i)
-                    ? 'bg-blue-500 text-white'
-                    : 'bg-gray-200 text-gray-600 hover:bg-gray-300 dark:bg-dark-tertiary dark:text-gray-400'
-                }`}
-              >
-                {name[0]}
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {value.frequency === 'monthly' && (
-        <div>
-          <span className="text-xs text-gray-500">Días del mes (separados por coma):</span>
-          <input
-            type="text"
-            value={(value.byMonthDay ?? []).join(', ')}
-            onChange={(e) => {
-              const days = e.target.value
-                .split(',')
-                .map((s) => parseInt(s.trim()))
-                .filter((n) => !isNaN(n) && n >= 1 && n <= 31);
-              update({ byMonthDay: days });
-            }}
-            placeholder="ej: 1, 15, 30"
-            className="mt-1 w-full rounded border border-gray-300 px-2 py-1 text-sm dark:border-dark-tertiary dark:bg-dark-tertiary"
-          />
-        </div>
-      )}
-
-      {value.frequency === 'yearly' && (
-        <div>
-          <span className="text-xs text-gray-500">Meses (separados por coma, 1-12):</span>
-          <input
-            type="text"
-            value={(value.byMonth ?? []).join(', ')}
-            onChange={(e) => {
-              const months = e.target.value
-                .split(',')
-                .map((s) => parseInt(s.trim()))
-                .filter((n) => !isNaN(n) && n >= 1 && n <= 12);
-              update({ byMonth: months });
-            }}
-            placeholder="ej: 1, 6, 12"
-            className="mt-1 w-full rounded border border-gray-300 px-2 py-1 text-sm dark:border-dark-tertiary dark:bg-dark-tertiary"
-          />
-        </div>
-      )}
 
       <div className="space-y-1">
         <span className="text-xs text-gray-500">Termina:</span>

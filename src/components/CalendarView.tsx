@@ -283,15 +283,16 @@ const CalendarView: React.FC = () => {
   };
 
   const viewLabel = useMemo(() => {
-    if (calendarView === 'day') return date.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+    const d = new Date(calendarDate);
+    if (calendarView === 'day') return d.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
     if (calendarView === 'week' || calendarView === 'list') {
       const ws = new Date(calendarDate); ws.setDate(ws.getDate() - ws.getDay());
       const we = new Date(ws); we.setDate(we.getDate() + 6);
       return `${ws.getDate()} - ${we.getDate()} de ${MONTH_NAMES[we.getMonth()]} ${we.getFullYear()}`;
     }
-    if (calendarView === 'month') return `${MONTH_NAMES[month]} ${year}`;
-    return `${year}`;
-  }, [calendarView, calendarDate, month, year]);
+    if (calendarView === 'month') return `${MONTH_NAMES[d.getMonth()]} ${d.getFullYear()}`;
+    return `${d.getFullYear()}`;
+  }, [calendarView, calendarDate]);
 
   return (
     <div className="flex h-full flex-col bg-light-primary dark:bg-dark-primary" style={{ fontSize }}>
@@ -431,7 +432,6 @@ const EventBadge: React.FC<{ event: CalendarEvent }> = ({ event }) => (
 /* ─── TooltipPortal ─── */
 const TooltipPortal: React.FC<{ event: CalendarEvent; x: number; y: number }> = ({ event, x, y }) => {
   const elRef = useRef<HTMLDivElement>(null);
-  const [finalPos, setFinalPos] = useState({ left: 0, top: 0, ready: false });
 
   useLayoutEffect(() => {
     const el = elRef.current;
@@ -445,11 +445,13 @@ const TooltipPortal: React.FC<{ event: CalendarEvent; x: number; y: number }> = 
     if (left + rect.width > window.innerWidth - 8) left = window.innerWidth - rect.width - 8;
     if (top < 8) top = y + gap;
 
-    setFinalPos({ left, top, ready: true });
+    el.style.left = `${left}px`;
+    el.style.top = `${top}px`;
+    el.style.visibility = 'visible';
   }, [x, y]);
 
   return createPortal(
-    <div ref={elRef} style={{ position: 'fixed', left: finalPos.left, top: finalPos.top, zIndex: 9999, visibility: finalPos.ready ? 'visible' : 'hidden' }} className="pointer-events-none tooltip-portal">
+    <div ref={elRef} style={{ position: 'fixed', zIndex: 9999, visibility: 'hidden' }} className="pointer-events-none tooltip-portal">
       <EventTooltip event={event} />
     </div>,
     document.body
@@ -534,21 +536,24 @@ const WeekView: React.FC<{
   onContextMenu: (v: { x: number; y: number; ts: number; isAllDay?: boolean } | null) => void;
 }> = ({ date, events, onHover, fontSize, onNewEvent, onEditEvent, onResizeMouseDown, resizing, dragOverHour, onContextMenu }) => {
   const [tooltipState, setTooltipState] = useState<{ event: CalendarEvent; x: number; y: number } | null>(null);
-  const [now, setNow] = useState(Date.now());
+  const [now, setNow] = useState(() => Date.now());
   useEffect(() => { const id = setInterval(() => setNow(Date.now()), 60000); return () => clearInterval(id); }, []);
-  const d = new Date(date); d.setDate(d.getDate() - d.getDay());
-  const weekDays = Array.from({ length: 7 }, (_, i) => {
-    const day = new Date(d); day.setDate(d.getDate() + i);
-    const ts = startOfDay(day.getTime());
-    return { timestamp: ts, dayName: DAY_NAMES[i], dayNum: day.getDate(), isToday: isToday(ts) };
-  });
 
   const handleSlotClick = (dayTimestamp: number, hour: number) => onNewEvent(dayTimestamp + hour * 3600000, dayTimestamp + (hour + 1) * 3600000);
 
   const allDayEvents = events.filter((evt) => evt.allDay && weekDays.some((wd) => isSameDay(evt.startDate, wd.timestamp)));
 
+  const weekDays = (() => {
+    const d = new Date(date); d.setDate(d.getDate() - d.getDay());
+    return Array.from({ length: 7 }, (_, i) => {
+      const day = new Date(d); day.setDate(d.getDate() + i);
+      const ts = startOfDay(day.getTime());
+      return { timestamp: ts, dayName: DAY_NAMES[i], dayNum: day.getDate(), isToday: isToday(ts) };
+    });
+  })();
+
   // Build timed events per day with overlap layout
-  const dayColumns = useMemo(() => {
+  const dayColumns = (() => {
     const result: Record<number, { event: CalendarEvent; column: number; total: number; top: number; height: number }[]> = {};
     for (const wd of weekDays) {
       const dayStart = wd.timestamp;
@@ -573,7 +578,7 @@ const WeekView: React.FC<{
       });
     }
     return result;
-  }, [events, weekDays]);
+  })();
 
   return (
     <div className="flex h-full flex-col overflow-auto" style={{ fontSize }}>
@@ -695,15 +700,18 @@ const DayView: React.FC<{
   onContextMenu: (v: { x: number; y: number; ts: number; isAllDay?: boolean } | null) => void;
 }> = ({ date, events, onHover, fontSize, onNewEvent, onEditEvent, onResizeMouseDown, resizing, dragOverHour, onContextMenu }) => {
   const [tooltipState, setTooltipState] = useState<{ event: CalendarEvent; x: number; y: number } | null>(null);
-  const [now, setNow] = useState(Date.now());
+  const [now, setNow] = useState(() => Date.now());
   useEffect(() => { const id = setInterval(() => setNow(Date.now()), 60000); return () => clearInterval(id); }, []);
+  const dayEvents = useMemo(() => {
+    const ds = startOfDay(date);
+    return events.filter((evt) => {
+      if (evt.allDay) return isSameDay(evt.startDate, date);
+      return evt.startDate < ds + 86400000 && (evt.endDate ?? evt.startDate) >= ds;
+    });
+  }, [date, events]);
   const ds = startOfDay(date);
-  const dayEvents = events.filter((evt) => {
-    if (evt.allDay) return isSameDay(evt.startDate, date);
-    return evt.startDate < ds + 86400000 && (evt.endDate ?? evt.startDate) >= ds;
-  });
-  const timedEvents = dayEvents.filter((evt) => !evt.allDay);
   const allDayEvts = dayEvents.filter((evt) => evt.allDay);
+  const timedEvents = dayEvents.filter((evt) => !evt.allDay);
 
   const handleSlotClick = (hour: number) => onNewEvent(ds + hour * 3600000, ds + (hour + 1) * 3600000);
 
