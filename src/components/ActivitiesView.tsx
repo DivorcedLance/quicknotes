@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { FiGrid, FiBarChart2, FiLayers, FiEdit3, FiCheckCircle, FiPlus, FiX, FiSettings, FiEye, FiEyeOff, FiList } from 'react-icons/fi';
+import { FiGrid, FiBarChart2, FiLayers, FiEdit3, FiCheckCircle, FiPlus, FiX, FiSettings, FiEye, FiEyeOff, FiList, FiPrinter } from 'react-icons/fi';
 import { createPortal } from 'react-dom';
 import { useActivitiesStore } from '../stores/activitiesStore';
 import { useSettingsStore } from '../stores/settingsStore';
@@ -390,10 +390,15 @@ const ContextMenu: React.FC<{
   onChangeStatus: (id: string, status: ActivityStatus) => void;
 }> = ({ menu, onClose, onNewInstance, onEditInstance, onDeleteInstance, onPostpone, onChangeStatus }) => {
   if (!menu) return null;
+  const menuWidth = 180;
+  const menuHeight = menu.type === 'cell' ? 40 : 320;
+  const fitsBelow = menu.y + menuHeight + 8 < window.innerHeight;
+  const left = Math.min(menu.x, window.innerWidth - menuWidth - 8);
+  const top = fitsBelow ? menu.y : Math.max(8, menu.y - menuHeight);
   return createPortal(
     <div className="fixed inset-0 z-[60]" onClick={onClose} onContextMenu={(e) => e.preventDefault()}>
       <div className="absolute rounded-lg border bg-white py-1 shadow-xl dark:border-dark-tertiary dark:bg-dark-secondary"
-        style={{ left: menu.x, top: menu.y, minWidth: 180 }}>
+        style={{ left, top, minWidth: menuWidth }}>
         {menu.type === 'cell' ? (
           <button onClick={() => { onNewInstance(menu); onClose(); }}
             className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-gray-100 dark:hover:bg-dark-tertiary">
@@ -558,7 +563,7 @@ const ActivitiesView: React.FC = () => {
   ) : (
     <div className="flex h-full flex-col" style={{ fontSize: 14 }}>
       {/* Toolbar */}
-      <div className="sticky top-0 z-30 flex items-center gap-2 border-b bg-white/95 backdrop-blur p-3 dark:border-dark-tertiary dark:bg-dark-secondary/95">
+      <div data-print-hide className="sticky top-0 z-30 flex items-center gap-2 border-b bg-white/95 backdrop-blur p-3 dark:border-dark-tertiary dark:bg-dark-secondary/95">
         {view === 'calendar' && (
           <button onClick={() => scrollToTodayRef.current?.()}
             className="flex items-center gap-1 rounded px-2 py-1.5 text-xs font-medium hover:bg-gray-200 dark:hover:bg-dark-tertiary">
@@ -605,6 +610,11 @@ const ActivitiesView: React.FC = () => {
         )}
 
         <div className="flex-1" />
+
+        <button onClick={() => window.print()}
+          className="flex items-center gap-1 rounded px-2 py-1.5 text-xs font-medium hover:bg-gray-200 dark:hover:bg-dark-tertiary">
+          <FiPrinter size={14} /> Imprimir
+        </button>
 
         <button onClick={() => { setEditDef(undefined); setShowDefModal(true); }}
           className="flex items-center gap-1 rounded-lg bg-blue-500 px-3 py-1.5 text-xs text-white hover:bg-blue-600">

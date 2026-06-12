@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from 'react';
-import { FiChevronDown, FiChevronRight } from 'react-icons/fi';
+import { FiChevronDown, FiChevronRight, FiType } from 'react-icons/fi';
 import { useActivitiesStore } from '../stores/activitiesStore';
+import { useSettingsStore } from '../stores/settingsStore';
 import type { ActivityStatus, ActivityInstance } from '../types';
 import { ACTIVITY_STATUS_LABELS, ACTIVITY_STATUS_COLORS } from '../types';
 
@@ -13,6 +14,8 @@ interface Props {
 
 const ActivityTimelineView: React.FC<Props> = ({ onViewMonth, onViewYear }) => {
   const { definitions, instances } = useActivitiesStore();
+  const { settings, updateSettings } = useSettingsStore();
+  const showFullName = settings.activityTimelineShowFullName ?? false;
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
   // Group instances by year then month
@@ -56,7 +59,7 @@ const ActivityTimelineView: React.FC<Props> = ({ onViewMonth, onViewYear }) => {
                 <div className="flex cursor-pointer items-center gap-3 py-3" onClick={() => onViewYear(year)}>
                   <span className="text-lg font-bold text-blue-600 dark:text-blue-400 hover:underline">{year}</span>
                   <div className="flex-1 h-px bg-blue-200 dark:bg-blue-800" />
-                  <span className="text-[10px] text-gray-400">{instances.filter((i) => i.year === year).length} actividades</span>
+                  <span className="print:hidden text-[10px] text-gray-400">{instances.filter((i) => i.year === year).length} actividades</span>
                 </div>
               )}
               {/* Month row */}
@@ -77,7 +80,12 @@ const ActivityTimelineView: React.FC<Props> = ({ onViewMonth, onViewYear }) => {
                       onClick={() => onViewMonth(year, month)}>
                       {MONTH_NAMES[month]}
                     </span>
-                    <span className="text-[10px] text-gray-400">{monthInsts.length} actividades</span>
+                    <span className="print:hidden text-[10px] text-gray-400">{monthInsts.length} actividades</span>
+                    <button onClick={() => updateSettings({ activityTimelineShowFullName: !showFullName })}
+                      className="print:hidden ml-1 rounded p-1 text-[10px] text-gray-400 hover:bg-gray-200 dark:hover:bg-dark-tertiary"
+                      title={showFullName ? 'Mostrar abreviatura' : 'Mostrar nombre completo'}>
+                      <FiType size={12} />
+                    </button>
                     {/* Mini status dots */}
                     <div className="flex gap-1 ml-2">
                       {timelineStatuses.map((s) => {
@@ -85,8 +93,9 @@ const ActivityTimelineView: React.FC<Props> = ({ onViewMonth, onViewYear }) => {
                         if (!count) return null;
                         return (
                           <span key={s} className="flex items-center gap-0.5 text-[9px] text-gray-500">
-                            <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: ACTIVITY_STATUS_COLORS[s] }} />
-                            {count}
+                            <span className="print:hidden h-1.5 w-1.5 rounded-full" style={{ backgroundColor: ACTIVITY_STATUS_COLORS[s] }} />
+                            <span className="print:hidden">{count}</span>
+                            <span className="hidden print:inline">{ACTIVITY_STATUS_LABELS[s]}: {count}</span>
                           </span>
                         );
                       })}
@@ -104,10 +113,10 @@ const ActivityTimelineView: React.FC<Props> = ({ onViewMonth, onViewYear }) => {
                             style={{ borderLeftColor: ACTIVITY_STATUS_COLORS[st], backgroundColor: `${ACTIVITY_STATUS_COLORS[st]}08` }}
                             onClick={() => setExpandedId(isExpanded ? null : inst.id)}>
                             <span className="shrink-0">{isExpanded ? <FiChevronDown size={12} /> : <FiChevronRight size={12} />}</span>
-                            <span className="h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: d?.color ?? '#666' }} />
-                            <span className="font-medium">{d?.shortName}</span>
+                            <span className="print:hidden h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: d?.color ?? '#666' }} />
+                            <span className="font-medium">{showFullName ? d?.title : d?.shortName}</span>
                             {inst.secondaryTitle && <span className="text-gray-500">— {inst.secondaryTitle}</span>}
-                            <span className="ml-auto text-[9px] px-1 rounded text-white" style={{ backgroundColor: ACTIVITY_STATUS_COLORS[st] }}>
+                            <span className="ml-auto text-[9px] px-1 rounded text-white print:text-black print:border print:border-black" style={{ backgroundColor: ACTIVITY_STATUS_COLORS[st] }}>
                               {ACTIVITY_STATUS_LABELS[st]}
                             </span>
                             <span className="text-[9px] text-gray-400">S{inst.weekOfMonth}</span>
@@ -121,7 +130,7 @@ const ActivityTimelineView: React.FC<Props> = ({ onViewMonth, onViewYear }) => {
                                 <div className="mb-1 italic text-gray-400">Sin descripción</div>
                               )}
                               <div className="flex flex-wrap gap-x-4 gap-y-1 text-gray-500">
-                                <span>Año {inst.year} · Mes {inst.month + 1} · S{inst.weekOfMonth}</span>
+                                <span>{inst.year} {MONTH_NAMES[inst.month]}, Semana {inst.weekOfMonth}</span>
                                 {inst.postponedFrom && <span>Pospuesto desde: {instances.find((i) => i.id === inst.postponedFrom)?.secondaryTitle || 'origen'}</span>}
                                 {inst.postponedHistory.length > 0 && <span>Historial: {inst.postponedHistory.length} postergaciones</span>}
                               </div>

@@ -62,7 +62,7 @@ const HoverPopup: React.FC = () => {
           dangerouslySetInnerHTML={{ __html: detailed ? target.inst.description : target.inst.description.replace(/<img[^>]+>/g, '') }} />
       )}
       <div className="mt-1 text-[9px] text-gray-400">
-        Año {target.inst.year} · Mes {target.inst.month + 1} · S{target.inst.weekOfMonth}
+        {target.inst.year} {MONTH_NAMES[target.inst.month]}, Semana {target.inst.weekOfMonth}
         {target.inst.postponedHistory?.length > 0 && ` · ${target.inst.postponedHistory.length} aplazamiento${target.inst.postponedHistory.length > 1 ? 's' : ''}`}
         {detailed && target.inst.postponedFrom && ` · Aplazada`}
       </div>
@@ -267,6 +267,16 @@ const ActivityCalendarView: React.FC<Props> = ({ mode, onContextMenu, onEditInst
   };
 
   const isCurrentMonth = (m: MonthBlock) => m.year === todayYear && m.month === todayMonth;
+  const monthsWithActivities = useMemo(() => {
+    const s = new Set<string>();
+    for (const inst of instances) s.add(`${inst.year}:${inst.month}`);
+    return s;
+  }, [instances]);
+  const yearsWithActivities = useMemo(() => {
+    const s = new Set<number>();
+    for (const inst of instances) s.add(inst.year);
+    return s;
+  }, [instances]);
   const years = useMemo(() => [...new Set(months.map((m) => m.year))].sort(), [months]);
 
   const GRID_COLS = `minmax(4rem, auto) repeat(6, 1fr)`;
@@ -291,7 +301,8 @@ const ActivityCalendarView: React.FC<Props> = ({ mode, onContextMenu, onEditInst
             <React.Fragment key={year}>
               {/* Year separator (spans all columns) */}
               {yi > 0 && (
-                <div className="flex items-center gap-3 py-3" style={{ gridColumn: '1 / -1' }}>
+                <div className="flex items-center gap-3 py-3" style={{ gridColumn: '1 / -1' }}
+                  data-print-hide={!yearsWithActivities.has(year) ? '' : undefined}>
                   <span className="text-lg font-bold text-blue-600 dark:text-blue-400">{year}</span>
                   <div className="flex-1 h-px bg-blue-200 dark:bg-blue-800" />
                 </div>
@@ -301,7 +312,9 @@ const ActivityCalendarView: React.FC<Props> = ({ mode, onContextMenu, onEditInst
                 const rowRef = isCurrentMonth(m) ? currentMonthRef : undefined;
 
                 return (
-                  <React.Fragment key={`${m.year}-${m.month}`}>
+                  <div key={`${m.year}-${m.month}`}
+                    className="contents"
+                    data-print-hide={!monthsWithActivities.has(`${m.year}:${m.month}`) ? '' : undefined}>
                     {/* Month row header */}
                     <div ref={rowRef}
                       className="flex flex-col items-center justify-center text-xs font-semibold text-gray-700 dark:text-gray-300 pr-2 border-r border-gray-200 dark:border-dark-tertiary min-h-[80px]">
@@ -344,7 +357,7 @@ const ActivityCalendarView: React.FC<Props> = ({ mode, onContextMenu, onEditInst
                         </ActivityCell>
                       );
                     })}
-                  </React.Fragment>
+                  </div>
                 );
               })}
             </React.Fragment>

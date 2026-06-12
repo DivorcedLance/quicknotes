@@ -79,3 +79,76 @@ code {
   padding: 4px 8px;
   background: var(--code-bg);
 }
+
+/* ─── Print styles ─── */
+@media print {
+  body {
+    background: #fff !important;
+    color: #000 !important;
+  }
+
+  /* Hide modals, context menus, scrollbars */
+  .fixed,
+  [class*="z-40"],
+  [class*="z-50"],
+  ::-webkit-scrollbar {
+    display: none !important;
+  }
+
+  /* Main content container */
+  .flex.h-full.flex-col {
+    display: block !important;
+    height: auto !important;
+    overflow: visible !important;
+  }
+
+  .flex-1.overflow-auto {
+    overflow: visible !important;
+    height: auto !important;
+  }
+
+  /* Force white backgrounds */
+  div, section, article, header, footer, main, table, tr, td, th {
+    background: #fff !important;
+    box-shadow: none !important;
+    backdrop-filter: none !important;
+    text-shadow: none !important;
+  }
+
+  /* Keep text colors readable on white */
+  .text-white {
+    color: #fff !important;
+  }
+
+  /* Keep borders visible */
+  .border, .border-b, .border-t, .border-l, .border-r, .border-l-4 {
+    border-color: #ccc !important;
+  }
+
+  /* Prevent page breaks inside activity rows */
+  .space-y-1 > div {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  /* Ensure muted text is readable */
+  .text-gray-500, .text-gray-400, .text-gray-600, .text-gray-700,
+  .dark\:text-gray-300, .dark\:text-gray-400 {
+    color: #444 !important;
+  }
+
+  .text-blue-600, .dark\:text-blue-400 {
+    color: #2563eb !important;
+  }
+
+  /* Show full content */
+  .overflow-auto, .overflow-y-auto, .overflow-x-auto {
+    overflow: visible !important;
+    max-height: none !important;
+  }
+
+  /* Hide elements marked for print (toolbar, empty months) */
+  [data-print-hide] {
+    display: none !important;
+  }
+}

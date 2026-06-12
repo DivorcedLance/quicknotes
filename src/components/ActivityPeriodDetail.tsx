@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react';
-import { FiArrowLeft, FiChevronDown, FiChevronRight } from 'react-icons/fi';
+import { FiArrowLeft, FiPrinter, FiChevronDown, FiChevronRight, FiType } from 'react-icons/fi';
+import { useSettingsStore } from '../stores/settingsStore';
 import type { ActivityStatus, ActivityInstance, ActivityDefinition } from '../types';
 import { ACTIVITY_STATUS_LABELS, ACTIVITY_STATUS_COLORS } from '../types';
 
@@ -14,6 +15,8 @@ interface Props {
 }
 
 const ActivityPeriodDetail: React.FC<Props> = ({ year, month, instances, definitions, onBack }) => {
+  const { settings, updateSettings } = useSettingsStore();
+  const showFullName = settings.activityTimelineShowFullName ?? false;
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
   const displayInstances = useMemo(() => {
@@ -74,7 +77,17 @@ const ActivityPeriodDetail: React.FC<Props> = ({ year, month, instances, definit
           <FiArrowLeft size={18} />
         </button>
         <h2 className="text-lg font-semibold">{title}</h2>
-        <span className="text-xs text-gray-500">{total} actividades</span>
+        <span className="print:hidden text-xs text-gray-500">{total} actividades</span>
+        <button onClick={() => updateSettings({ activityTimelineShowFullName: !showFullName })}
+          className="print:hidden ml-1 rounded p-1 text-[10px] text-gray-400 hover:bg-gray-200 dark:hover:bg-dark-tertiary"
+          title={showFullName ? 'Mostrar abreviatura' : 'Mostrar nombre completo'}>
+          <FiType size={14} />
+        </button>
+        <div className="flex-1" />
+        <button onClick={() => window.print()}
+          className="flex items-center gap-1 rounded px-2 py-1.5 text-xs font-medium hover:bg-gray-200 dark:hover:bg-dark-tertiary">
+          <FiPrinter size={14} /> Imprimir
+        </button>
       </div>
 
       <div className="flex-1 overflow-auto">
@@ -147,10 +160,10 @@ const ActivityPeriodDetail: React.FC<Props> = ({ year, month, instances, definit
                         style={{ borderLeftColor: ACTIVITY_STATUS_COLORS[st], backgroundColor: `${ACTIVITY_STATUS_COLORS[st]}08` }}
                         onClick={() => setExpandedId(isExpanded ? null : inst.id)}>
                         <span className="shrink-0">{isExpanded ? <FiChevronDown size={12} /> : <FiChevronRight size={12} />}</span>
-                        <span className="h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: d?.color ?? '#666' }} />
-                        <span className="font-medium">{d?.shortName}</span>
+                        <span className="print:hidden h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: d?.color ?? '#666' }} />
+                        <span className="font-medium">{showFullName ? d?.title : d?.shortName}</span>
                         {inst.secondaryTitle && <span className="text-gray-500">— {inst.secondaryTitle}</span>}
-                        <span className="ml-auto text-[9px] px-1 rounded text-white" style={{ backgroundColor: ACTIVITY_STATUS_COLORS[st] }}>
+                        <span className="ml-auto text-[9px] px-1 rounded text-white print:text-black print:border print:border-black" style={{ backgroundColor: ACTIVITY_STATUS_COLORS[st] }}>
                           {ACTIVITY_STATUS_LABELS[st]}
                         </span>
                         <span className="text-[9px] text-gray-400">S{inst.weekOfMonth}</span>
@@ -163,8 +176,7 @@ const ActivityPeriodDetail: React.FC<Props> = ({ year, month, instances, definit
                             <div className="mb-1 italic text-gray-400">Sin descripción</div>
                           )}
                           <div className="flex flex-wrap gap-x-4 gap-y-1 text-gray-500">
-                            {month === undefined && <span>{MONTH_NAMES[inst.month]}</span>}
-                            <span>Año {inst.year} · Mes {inst.month + 1} · S{inst.weekOfMonth}</span>
+                            <span>{inst.year} {MONTH_NAMES[inst.month]}, Semana {inst.weekOfMonth}</span>
                             {inst.postponedFrom && <span>Pospuesto desde: {instances.find((i) => i.id === inst.postponedFrom)?.secondaryTitle || 'origen'}</span>}
                             {inst.postponedHistory.length > 0 && <span>Historial: {inst.postponedHistory.length} postergaciones</span>}
                           </div>

@@ -133,6 +133,7 @@ export interface UserSettings {
   fontSize: number;
   notificationsEnabled: boolean;
   activityHoverView?: 'compact' | 'detailed';
+  activityTimelineShowFullName?: boolean;
 }
 
 export interface Database {
